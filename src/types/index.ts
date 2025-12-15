@@ -1,6 +1,6 @@
 export type LeadStage = "new" | "interested" | "contacted" | "negotiation" | "demo" | "converted" | "lost";
 
-export type LeadSource = "website" | "linkedin" | "referral" | "email" | "webinar" | "meta_ads" | "google_ads" | "other";
+export type LeadSource = "website" | "linkedin" | "referral" | "email" | "instagram" | "meta_ads" | "google_ads" | "other";
 
 export interface Lead {
   id: string;
@@ -16,6 +16,7 @@ export interface Lead {
   last_contacted: string | null;
   created_at: string;
   updated_at: string;
+  archived?: boolean;
 }
 
 export interface EmailLog {

@@ -28,6 +28,7 @@ interface LeadsTableProps {
   onDeleteLead?: (leadId: string) => void;
   onArchiveLead?: (leadId: string) => void;
   onFollowUpEmail?: (lead: Lead) => void;
+  showArchived?: boolean;
 }
 
 type SortField = "name" | "stage" | "owner" | "source" | "last_contacted" | "created_at";
@@ -35,14 +36,14 @@ type SortDirection = "asc" | "desc";
 
 const ITEMS_PER_PAGE = 6;
 
-const owners = ["Heath Maes", "Sarah Johnson", "Mike Chen", "Emily Davis"];
+const owners = ["Heath Maes"];
 
 const sourceConfig: Record<LeadSource, { label: string; className: string }> = {
   website: { label: "Website", className: "bg-blue-100 text-blue-700" },
   linkedin: { label: "LinkedIn", className: "bg-sky-100 text-sky-700" },
   referral: { label: "Referral", className: "bg-purple-100 text-purple-700" },
   email: { label: "Email", className: "bg-green-100 text-green-700" },
-  webinar: { label: "Webinar", className: "bg-orange-100 text-orange-700" },
+  instagram: { label: "Instagram Messages", className: "bg-pink-100 text-pink-700" },
   meta_ads: { label: "Meta Ads", className: "bg-indigo-100 text-indigo-700" },
   google_ads: { label: "Google Ads", className: "bg-yellow-100 text-yellow-700" },
   other: { label: "Other", className: "bg-gray-100 text-gray-700" },
@@ -116,11 +117,13 @@ function ActionsMenu({
   onArchive,
   onFollowUp,
   onDelete,
+  isArchived,
 }: {
   lead: Lead;
   onArchive?: () => void;
   onFollowUp?: () => void;
   onDelete?: () => void;
+  isArchived?: boolean;
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -158,7 +161,7 @@ function ActionsMenu({
             className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-gray-50 transition-colors text-gray-700"
           >
             <Archive className="w-4 h-4" />
-            Archive
+            {isArchived ? "Unarchive" : "Archive"}
           </button>
           <button
             onClick={(e) => {
@@ -200,6 +203,7 @@ export function LeadsTable({
   onDeleteLead,
   onArchiveLead,
   onFollowUpEmail,
+  showArchived = false,
 }: LeadsTableProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -217,9 +221,12 @@ export function LeadsTable({
 
   const filteredLeads = leads.filter(
     (lead) =>
-      lead.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      // Filter by archived status
+      (showArchived ? lead.archived : !lead.archived) &&
+      // Filter by search query
+      (lead.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       lead.company.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      lead.email.toLowerCase().includes(searchQuery.toLowerCase())
+      lead.email.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   const sortedLeads = [...filteredLeads].sort((a, b) => {
@@ -407,6 +414,7 @@ export function LeadsTable({
                     onArchive={() => onArchiveLead?.(lead.id)}
                     onFollowUp={() => onFollowUpEmail?.(lead)}
                     onDelete={() => onDeleteLead?.(lead.id)}
+                    isArchived={showArchived}
                   />
                 </td>
               </tr>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { TopOpportunities } from "@/components/leads/TopOpportunities";
 import { LeadsTable } from "@/components/leads/LeadsTable";
@@ -8,20 +8,58 @@ import { KanbanBoard } from "@/components/leads/KanbanBoard";
 import { LeadModal } from "@/components/leads/LeadModal";
 import { mockLeads, getTopOpportunities } from "@/lib/mockData";
 import { Lead, LeadStage } from "@/types";
-import { LayoutGrid, List, Plus } from "lucide-react";
+import { LayoutGrid, List, Plus, Archive } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type ViewMode = "table" | "kanban";
 
+const LEADS_STORAGE_KEY = "seam-media-leads";
+
+// Load leads from localStorage or use mock data
+function loadLeads(): Lead[] {
+  if (typeof window === "undefined") return mockLeads;
+  const stored = localStorage.getItem(LEADS_STORAGE_KEY);
+  if (stored) {
+    try {
+      return JSON.parse(stored);
+    } catch {
+      return mockLeads;
+    }
+  }
+  return mockLeads;
+}
+
+// Save leads to localStorage
+function saveLeads(leads: Lead[]) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(LEADS_STORAGE_KEY, JSON.stringify(leads));
+}
+
 export default function LeadsPage() {
-  const [leads, setLeads] = useState<Lead[]>(mockLeads);
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const [isLoaded, setIsLoaded] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>("table");
   const [isComposeOpen, setIsComposeOpen] = useState(false);
   const [composeToLead, setComposeToLead] = useState<Lead | null>(null);
+  const [showArchived, setShowArchived] = useState(false);
 
-  const topOpportunities = getTopOpportunities(leads);
+  // Load leads from localStorage on mount
+  useEffect(() => {
+    const storedLeads = loadLeads();
+    setLeads(storedLeads);
+    setIsLoaded(true);
+  }, []);
+
+  // Save leads to localStorage whenever they change
+  useEffect(() => {
+    if (isLoaded) {
+      saveLeads(leads);
+    }
+  }, [leads, isLoaded]);
+
+  const topOpportunities = getTopOpportunities(leads.filter(l => !l.archived));
 
   const handleAddLead = () => {
     setSelectedLead(null);
@@ -58,12 +96,20 @@ export default function LeadsPage() {
   };
 
   const handleArchiveLead = (leadId: string) => {
-    // For now, we'll move to "lost" stage as archive
-    // In a full implementation, you'd have a separate archived field
     setLeads((prev) =>
       prev.map((lead) =>
         lead.id === leadId
-          ? { ...lead, stage: "lost" as LeadStage, updated_at: new Date().toISOString() }
+          ? { ...lead, archived: true, updated_at: new Date().toISOString() }
+          : lead
+      )
+    );
+  };
+
+  const handleUnarchiveLead = (leadId: string) => {
+    setLeads((prev) =>
+      prev.map((lead) =>
+        lead.id === leadId
+          ? { ...lead, archived: false, updated_at: new Date().toISOString() }
           : lead
       )
     );
@@ -112,30 +158,46 @@ export default function LeadsPage() {
 
       {/* View Mode Toggle */}
       <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-lg">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-lg">
+            <button
+              onClick={() => setViewMode("table")}
+              className={cn(
+                "flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
+                viewMode === "table"
+                  ? "bg-white text-gray-900 shadow-sm"
+                  : "text-gray-600 hover:text-gray-900"
+              )}
+            >
+              <List className="w-4 h-4" />
+              Table
+            </button>
+            <button
+              onClick={() => setViewMode("kanban")}
+              className={cn(
+                "flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
+                viewMode === "kanban"
+                  ? "bg-white text-gray-900 shadow-sm"
+                  : "text-gray-600 hover:text-gray-900"
+              )}
+            >
+              <LayoutGrid className="w-4 h-4" />
+              Board
+            </button>
+          </div>
+
+          {/* Archive Filter Toggle */}
           <button
-            onClick={() => setViewMode("table")}
+            onClick={() => setShowArchived(!showArchived)}
             className={cn(
-              "flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
-              viewMode === "table"
-                ? "bg-white text-gray-900 shadow-sm"
-                : "text-gray-600 hover:text-gray-900"
+              "flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border",
+              showArchived
+                ? "bg-amber-50 text-amber-700 border-amber-200"
+                : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
             )}
           >
-            <List className="w-4 h-4" />
-            Table
-          </button>
-          <button
-            onClick={() => setViewMode("kanban")}
-            className={cn(
-              "flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
-              viewMode === "kanban"
-                ? "bg-white text-gray-900 shadow-sm"
-                : "text-gray-600 hover:text-gray-900"
-            )}
-          >
-            <LayoutGrid className="w-4 h-4" />
-            Board
+            <Archive className="w-4 h-4" />
+            {showArchived ? "Showing Archived" : "Show Archived"}
           </button>
         </div>
 
@@ -159,8 +221,9 @@ export default function LeadsPage() {
           onStageChange={handleStageChange}
           onUpdateLead={handleUpdateLead}
           onDeleteLead={handleDeleteLead}
-          onArchiveLead={handleArchiveLead}
+          onArchiveLead={showArchived ? handleUnarchiveLead : handleArchiveLead}
           onFollowUpEmail={handleFollowUpEmail}
+          showArchived={showArchived}
         />
       ) : (
         <KanbanBoard

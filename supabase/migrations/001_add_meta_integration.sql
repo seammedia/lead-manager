@@ -4,10 +4,10 @@
 -- Add meta_lead_id to leads table
 ALTER TABLE leads ADD COLUMN IF NOT EXISTS meta_lead_id TEXT UNIQUE;
 
--- Update source constraint to include meta_ads
+-- Update source constraint to include meta_ads and instagram
 ALTER TABLE leads DROP CONSTRAINT IF EXISTS leads_source_check;
 ALTER TABLE leads ADD CONSTRAINT leads_source_check
-  CHECK (source IN ('website', 'linkedin', 'referral', 'email', 'webinar', 'meta_ads', 'google_ads', 'other'));
+  CHECK (source IN ('website', 'linkedin', 'referral', 'email', 'instagram', 'meta_ads', 'google_ads', 'other'));
 
 -- Create meta_connections table for storing Facebook/Meta OAuth tokens
 CREATE TABLE IF NOT EXISTS meta_connections (

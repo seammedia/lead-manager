@@ -26,7 +26,9 @@ const sources: { value: LeadSource; label: string }[] = [
   { value: "linkedin", label: "LinkedIn" },
   { value: "referral", label: "Referral" },
   { value: "email", label: "Email" },
-  { value: "webinar", label: "Webinar" },
+  { value: "instagram", label: "Instagram Messages" },
+  { value: "meta_ads", label: "Meta Ads" },
+  { value: "google_ads", label: "Google Ads" },
   { value: "other", label: "Other" },
 ];
 
@@ -38,7 +40,7 @@ export function LeadModal({ isOpen, onClose, onSave, lead }: LeadModalProps) {
     phone: "",
     stage: "new" as LeadStage,
     source: "website" as LeadSource,
-    owner: "",
+    owner: "Heath Maes",
     conversion_probability: 20,
     notes: "",
   });
@@ -64,7 +66,7 @@ export function LeadModal({ isOpen, onClose, onSave, lead }: LeadModalProps) {
         phone: "",
         stage: "new",
         source: "website",
-        owner: "",
+        owner: "Heath Maes",
         conversion_probability: 20,
         notes: "",
       });
