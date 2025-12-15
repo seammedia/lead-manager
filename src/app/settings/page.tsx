@@ -33,6 +33,12 @@ function SettingsContent() {
   const [gmailConnected, setGmailConnected] = useState(false);
   const [connectedEmail, setConnectedEmail] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Check Gmail status on mount
+  useEffect(() => {
+    checkGmailStatus();
+  }, []);
 
   // Check for Gmail OAuth callback
   useEffect(() => {
@@ -54,6 +60,19 @@ function SettingsContent() {
     }
   }, [searchParams]);
 
+  const checkGmailStatus = async () => {
+    try {
+      const response = await fetch("/api/gmail/status");
+      const data = await response.json();
+      setGmailConnected(data.connected);
+      setConnectedEmail(data.email);
+    } catch (error) {
+      console.error("Failed to check Gmail status:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleConnectGmail = async () => {
     setIsConnecting(true);
     try {
@@ -68,9 +87,14 @@ function SettingsContent() {
     }
   };
 
-  const handleDisconnectGmail = () => {
-    setGmailConnected(false);
-    setConnectedEmail(null);
+  const handleDisconnectGmail = async () => {
+    try {
+      await fetch("/api/gmail/disconnect", { method: "POST" });
+      setGmailConnected(false);
+      setConnectedEmail(null);
+    } catch (error) {
+      console.error("Failed to disconnect Gmail:", error);
+    }
   };
 
   return (
@@ -193,7 +217,9 @@ function SettingsContent() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      {gmailConnected ? (
+                      {isLoading ? (
+                        <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
+                      ) : gmailConnected ? (
                         <>
                           <span className="flex items-center gap-1 text-sm text-green-600">
                             <Check className="w-4 h-4" />

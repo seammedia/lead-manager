@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTokensFromCode, getUserProfile } from "@/lib/gmail";
+import { setGmailTokens } from "@/lib/auth-cookies";
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -21,21 +22,29 @@ export async function GET(request: NextRequest) {
   try {
     const tokens = await getTokensFromCode(code);
 
-    // Get user profile
-    const profile = await getUserProfile(tokens.access_token!, tokens.refresh_token!);
+    if (!tokens.access_token || !tokens.refresh_token) {
+      return NextResponse.redirect(
+        new URL("/settings?error=Failed to get tokens", request.url)
+      );
+    }
 
-    // In a real app, you would store these tokens securely in your database
-    // For now, we'll redirect with success and you can store them client-side
-    // or implement proper session management
+    // Get user profile
+    const profile = await getUserProfile(tokens.access_token, tokens.refresh_token);
+
+    // Store tokens in secure HTTP-only cookies
+    await setGmailTokens(
+      {
+        access_token: tokens.access_token,
+        refresh_token: tokens.refresh_token,
+        expiry_date: tokens.expiry_date || undefined,
+      },
+      profile.email || ""
+    );
 
     const params = new URLSearchParams({
       success: "true",
       email: profile.email || "",
-      name: profile.name || "",
     });
-
-    // Note: In production, store tokens in database and use secure session management
-    // The tokens should be encrypted and stored server-side
 
     return NextResponse.redirect(
       new URL(`/settings?${params.toString()}`, request.url)
