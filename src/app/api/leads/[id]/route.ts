@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { getServiceSupabase } from "@/lib/supabase";
 
 // GET /api/leads/[id] - Get a single lead
 export async function GET(
@@ -9,6 +9,7 @@ export async function GET(
   try {
     const { id } = await params;
 
+    const supabase = getServiceSupabase();
     const { data: lead, error } = await supabase
       .from("leads")
       .select("*")
@@ -44,6 +45,7 @@ export async function PATCH(
     // Remove fields that shouldn't be updated directly
     const { id: _, created_at, updated_at, ...updates } = body;
 
+    const supabase = getServiceSupabase();
     const { data: lead, error } = await supabase
       .from("leads")
       .update(updates)
@@ -84,6 +86,7 @@ export async function DELETE(
   try {
     const { id } = await params;
 
+    const supabase = getServiceSupabase();
     const { error } = await supabase
       .from("leads")
       .delete()

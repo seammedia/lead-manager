@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { getServiceSupabase } from "@/lib/supabase";
 
 // GET /api/leads - Fetch all leads
 export async function GET(request: NextRequest) {
@@ -7,6 +7,7 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const archived = searchParams.get("archived") === "true";
 
+    const supabase = getServiceSupabase();
     const { data: leads, error } = await supabase
       .from("leads")
       .select("*")
@@ -58,6 +59,7 @@ export async function POST(request: NextRequest) {
       archived: false,
     };
 
+    const supabase = getServiceSupabase();
     const { data: lead, error } = await supabase
       .from("leads")
       .insert(newLead)
