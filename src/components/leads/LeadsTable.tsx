@@ -221,12 +221,10 @@ export function LeadsTable({
 
   const filteredLeads = leads.filter(
     (lead) =>
-      // Filter by archived status
-      (showArchived ? lead.archived : !lead.archived) &&
-      // Filter by search query
-      (lead.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      // Filter by search query only (archived filtering is done at API level)
+      lead.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       lead.company.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      lead.email.toLowerCase().includes(searchQuery.toLowerCase()))
+      lead.email.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const sortedLeads = [...filteredLeads].sort((a, b) => {

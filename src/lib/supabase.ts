@@ -5,6 +5,18 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
+// Service role client for server-side operations (webhooks, etc.)
+export function getServiceSupabase() {
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!serviceRoleKey) {
+    throw new Error("SUPABASE_SERVICE_ROLE_KEY is not set");
+  }
+  return createClient(supabaseUrl, serviceRoleKey);
+}
+
+export type LeadStage = "new" | "interested" | "contacted" | "negotiation" | "demo" | "converted" | "lost";
+export type LeadSource = "website" | "linkedin" | "referral" | "email" | "instagram" | "meta_ads" | "google_ads" | "other";
+
 export type Database = {
   public: {
     Tables: {
@@ -15,12 +27,15 @@ export type Database = {
           company: string;
           email: string;
           phone: string | null;
-          stage: "new" | "interested" | "contacted" | "negotiation" | "demo" | "converted" | "lost";
-          source: "website" | "linkedin" | "referral" | "email" | "webinar" | "other";
+          stage: LeadStage;
+          source: LeadSource;
           owner: string;
           conversion_probability: number;
+          revenue: number | null;
           notes: string | null;
           last_contacted: string | null;
+          archived: boolean;
+          meta_lead_id: string | null;
           created_at: string;
           updated_at: string;
         };

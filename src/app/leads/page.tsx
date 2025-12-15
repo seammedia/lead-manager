@@ -1,43 +1,21 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { TopOpportunities } from "@/components/leads/TopOpportunities";
 import { LeadsTable } from "@/components/leads/LeadsTable";
 import { KanbanBoard } from "@/components/leads/KanbanBoard";
 import { LeadModal } from "@/components/leads/LeadModal";
-import { mockLeads, getTopOpportunities } from "@/lib/mockData";
+import { getTopOpportunities } from "@/lib/mockData";
 import { Lead, LeadStage } from "@/types";
-import { LayoutGrid, List, Plus, Archive } from "lucide-react";
+import { LayoutGrid, List, Plus, Archive, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type ViewMode = "table" | "kanban";
 
-const LEADS_STORAGE_KEY = "seam-media-leads";
-
-// Load leads from localStorage or use mock data
-function loadLeads(): Lead[] {
-  if (typeof window === "undefined") return mockLeads;
-  const stored = localStorage.getItem(LEADS_STORAGE_KEY);
-  if (stored) {
-    try {
-      return JSON.parse(stored);
-    } catch {
-      return mockLeads;
-    }
-  }
-  return mockLeads;
-}
-
-// Save leads to localStorage
-function saveLeads(leads: Lead[]) {
-  if (typeof window === "undefined") return;
-  localStorage.setItem(LEADS_STORAGE_KEY, JSON.stringify(leads));
-}
-
 export default function LeadsPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
-  const [isLoaded, setIsLoaded] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>("table");
@@ -45,21 +23,51 @@ export default function LeadsPage() {
   const [composeToLead, setComposeToLead] = useState<Lead | null>(null);
   const [showArchived, setShowArchived] = useState(false);
 
-  // Load leads from localStorage on mount
-  useEffect(() => {
-    const storedLeads = loadLeads();
-    setLeads(storedLeads);
-    setIsLoaded(true);
+  // Fetch leads from API
+  const fetchLeads = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const response = await fetch(`/api/leads?archived=${showArchived}`);
+      if (response.ok) {
+        const data = await response.json();
+        setLeads(data.leads || []);
+      }
+    } catch (error) {
+      console.error("Error fetching leads:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [showArchived]);
+
+  // Fetch all leads (both archived and non-archived) for top opportunities
+  const [allLeads, setAllLeads] = useState<Lead[]>([]);
+
+  const fetchAllLeads = useCallback(async () => {
+    try {
+      const [activeRes, archivedRes] = await Promise.all([
+        fetch("/api/leads?archived=false"),
+        fetch("/api/leads?archived=true")
+      ]);
+
+      if (activeRes.ok && archivedRes.ok) {
+        const activeData = await activeRes.json();
+        const archivedData = await archivedRes.json();
+        setAllLeads([...(activeData.leads || []), ...(archivedData.leads || [])]);
+      }
+    } catch (error) {
+      console.error("Error fetching all leads:", error);
+    }
   }, []);
 
-  // Save leads to localStorage whenever they change
   useEffect(() => {
-    if (isLoaded) {
-      saveLeads(leads);
-    }
-  }, [leads, isLoaded]);
+    fetchLeads();
+  }, [fetchLeads]);
 
-  const topOpportunities = getTopOpportunities(leads.filter(l => !l.archived));
+  useEffect(() => {
+    fetchAllLeads();
+  }, [fetchAllLeads]);
+
+  const topOpportunities = getTopOpportunities(allLeads.filter(l => !l.archived));
 
   const handleAddLead = () => {
     setSelectedLead(null);
@@ -71,48 +79,96 @@ export default function LeadsPage() {
     setIsModalOpen(true);
   };
 
-  const handleStageChange = (leadId: string, newStage: LeadStage) => {
-    setLeads((prev) =>
-      prev.map((lead) =>
-        lead.id === leadId
-          ? { ...lead, stage: newStage, updated_at: new Date().toISOString() }
-          : lead
-      )
-    );
+  const handleStageChange = async (leadId: string, newStage: LeadStage) => {
+    try {
+      const response = await fetch(`/api/leads/${leadId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ stage: newStage }),
+      });
+
+      if (response.ok) {
+        setLeads((prev) =>
+          prev.map((lead) =>
+            lead.id === leadId ? { ...lead, stage: newStage } : lead
+          )
+        );
+        fetchAllLeads(); // Refresh top opportunities
+      }
+    } catch (error) {
+      console.error("Error updating stage:", error);
+    }
   };
 
-  const handleUpdateLead = (leadId: string, updates: Partial<Lead>) => {
-    setLeads((prev) =>
-      prev.map((lead) =>
-        lead.id === leadId
-          ? { ...lead, ...updates, updated_at: new Date().toISOString() }
-          : lead
-      )
-    );
+  const handleUpdateLead = async (leadId: string, updates: Partial<Lead>) => {
+    try {
+      const response = await fetch(`/api/leads/${leadId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updates),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setLeads((prev) =>
+          prev.map((lead) =>
+            lead.id === leadId ? data.lead : lead
+          )
+        );
+        fetchAllLeads(); // Refresh top opportunities
+      }
+    } catch (error) {
+      console.error("Error updating lead:", error);
+    }
   };
 
-  const handleDeleteLead = (leadId: string) => {
-    setLeads((prev) => prev.filter((lead) => lead.id !== leadId));
+  const handleDeleteLead = async (leadId: string) => {
+    try {
+      const response = await fetch(`/api/leads/${leadId}`, {
+        method: "DELETE",
+      });
+
+      if (response.ok) {
+        setLeads((prev) => prev.filter((lead) => lead.id !== leadId));
+        fetchAllLeads(); // Refresh top opportunities
+      }
+    } catch (error) {
+      console.error("Error deleting lead:", error);
+    }
   };
 
-  const handleArchiveLead = (leadId: string) => {
-    setLeads((prev) =>
-      prev.map((lead) =>
-        lead.id === leadId
-          ? { ...lead, archived: true, updated_at: new Date().toISOString() }
-          : lead
-      )
-    );
+  const handleArchiveLead = async (leadId: string) => {
+    try {
+      const response = await fetch(`/api/leads/${leadId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ archived: true }),
+      });
+
+      if (response.ok) {
+        setLeads((prev) => prev.filter((lead) => lead.id !== leadId));
+        fetchAllLeads(); // Refresh top opportunities
+      }
+    } catch (error) {
+      console.error("Error archiving lead:", error);
+    }
   };
 
-  const handleUnarchiveLead = (leadId: string) => {
-    setLeads((prev) =>
-      prev.map((lead) =>
-        lead.id === leadId
-          ? { ...lead, archived: false, updated_at: new Date().toISOString() }
-          : lead
-      )
-    );
+  const handleUnarchiveLead = async (leadId: string) => {
+    try {
+      const response = await fetch(`/api/leads/${leadId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ archived: false }),
+      });
+
+      if (response.ok) {
+        setLeads((prev) => prev.filter((lead) => lead.id !== leadId));
+        fetchAllLeads(); // Refresh top opportunities
+      }
+    } catch (error) {
+      console.error("Error unarchiving lead:", error);
+    }
   };
 
   const handleFollowUpEmail = (lead: Lead) => {
@@ -120,35 +176,40 @@ export default function LeadsPage() {
     setIsComposeOpen(true);
   };
 
-  const handleSaveLead = (leadData: Partial<Lead>) => {
-    if (leadData.id) {
-      // Edit existing lead
-      setLeads((prev) =>
-        prev.map((lead) =>
-          lead.id === leadData.id
-            ? { ...lead, ...leadData, updated_at: new Date().toISOString() }
-            : lead
-        )
-      );
-    } else {
-      // Add new lead
-      const newLead: Lead = {
-        id: `${Date.now()}`,
-        name: leadData.name!,
-        company: leadData.company || "",
-        email: leadData.email!,
-        phone: leadData.phone || null,
-        stage: leadData.stage || "new",
-        source: leadData.source || "website",
-        owner: leadData.owner || "Heath Maes",
-        conversion_probability: leadData.conversion_probability || 20,
-        revenue: leadData.revenue || null,
-        notes: leadData.notes || null,
-        last_contacted: null,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
-      setLeads((prev) => [newLead, ...prev]);
+  const handleSaveLead = async (leadData: Partial<Lead>) => {
+    try {
+      if (leadData.id) {
+        // Edit existing lead
+        const response = await fetch(`/api/leads/${leadData.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(leadData),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setLeads((prev) =>
+            prev.map((lead) =>
+              lead.id === leadData.id ? data.lead : lead
+            )
+          );
+        }
+      } else {
+        // Add new lead
+        const response = await fetch("/api/leads", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(leadData),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setLeads((prev) => [data.lead, ...prev]);
+        }
+      }
+      fetchAllLeads(); // Refresh top opportunities
+    } catch (error) {
+      console.error("Error saving lead:", error);
     }
     setIsModalOpen(false);
   };
@@ -200,6 +261,16 @@ export default function LeadsPage() {
             <Archive className="w-4 h-4" />
             {showArchived ? "Showing Archived" : "Show Archived"}
           </button>
+
+          {/* Refresh Button */}
+          <button
+            onClick={() => { fetchLeads(); fetchAllLeads(); }}
+            disabled={isLoading}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border bg-white text-gray-600 border-gray-200 hover:bg-gray-50 disabled:opacity-50"
+          >
+            <RefreshCw className={cn("w-4 h-4", isLoading && "animate-spin")} />
+            Refresh
+          </button>
         </div>
 
         {viewMode === "kanban" && (
@@ -213,25 +284,35 @@ export default function LeadsPage() {
         )}
       </div>
 
-      {/* Content based on view mode */}
-      {viewMode === "table" ? (
-        <LeadsTable
-          leads={leads}
-          onAddLead={handleAddLead}
-          onEditLead={handleEditLead}
-          onStageChange={handleStageChange}
-          onUpdateLead={handleUpdateLead}
-          onDeleteLead={handleDeleteLead}
-          onArchiveLead={showArchived ? handleUnarchiveLead : handleArchiveLead}
-          onFollowUpEmail={handleFollowUpEmail}
-          showArchived={showArchived}
-        />
+      {/* Loading State */}
+      {isLoading && leads.length === 0 ? (
+        <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
+          <RefreshCw className="w-8 h-8 text-gray-400 animate-spin mx-auto mb-4" />
+          <p className="text-gray-500">Loading leads...</p>
+        </div>
       ) : (
-        <KanbanBoard
-          leads={leads.filter(l => showArchived ? l.archived : !l.archived)}
-          onUpdateLead={handleUpdateLead}
-          onEditLead={handleEditLead}
-        />
+        <>
+          {/* Content based on view mode */}
+          {viewMode === "table" ? (
+            <LeadsTable
+              leads={leads}
+              onAddLead={handleAddLead}
+              onEditLead={handleEditLead}
+              onStageChange={handleStageChange}
+              onUpdateLead={handleUpdateLead}
+              onDeleteLead={handleDeleteLead}
+              onArchiveLead={showArchived ? handleUnarchiveLead : handleArchiveLead}
+              onFollowUpEmail={handleFollowUpEmail}
+              showArchived={showArchived}
+            />
+          ) : (
+            <KanbanBoard
+              leads={leads}
+              onUpdateLead={handleUpdateLead}
+              onEditLead={handleEditLead}
+            />
+          )}
+        </>
       )}
 
       <LeadModal
@@ -269,7 +350,7 @@ export default function LeadsPage() {
                   readOnly
                 />
                 <p className="mt-1 text-xs text-gray-500">
-                  {composeToLead.name} at {composeToLead.company}
+                  {composeToLead.name} {composeToLead.company && `at ${composeToLead.company}`}
                 </p>
               </div>
               <div>
@@ -278,7 +359,7 @@ export default function LeadsPage() {
                 </label>
                 <input
                   type="text"
-                  defaultValue={`Following up - ${composeToLead.company}`}
+                  defaultValue={`Following up${composeToLead.company ? ` - ${composeToLead.company}` : ""}`}
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
                 />
               </div>
@@ -288,7 +369,7 @@ export default function LeadsPage() {
                 </label>
                 <textarea
                   rows={10}
-                  defaultValue={`Hi ${composeToLead.name.split(" ")[0]},\n\nI wanted to follow up on our previous conversation. I'd love to schedule a time to discuss how we can help ${composeToLead.company}.\n\nWould you be available for a quick call this week?\n\nBest regards,\nHeath Maes\nSeam Media`}
+                  defaultValue={`Hi ${composeToLead.name.split(" ")[0]},\n\nI wanted to follow up on our previous conversation.${composeToLead.company ? ` I'd love to schedule a time to discuss how we can help ${composeToLead.company}.` : ""}\n\nWould you be available for a quick call this week?\n\nBest regards,\nHeath Maes\nSeam Media`}
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
                 />
               </div>
