@@ -58,7 +58,7 @@ export default function LeadsPage() {
   };
 
   return (
-    <AppLayout title="Leads" subtitle="Welcome back, Keanu">
+    <AppLayout title="Leads" subtitle="Welcome back, Heath">
       <TopOpportunities leads={topOpportunities} />
       <LeadsTable
         leads={leads}

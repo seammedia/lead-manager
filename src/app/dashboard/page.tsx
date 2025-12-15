@@ -20,7 +20,7 @@ export default function DashboardPage() {
   };
 
   return (
-    <AppLayout title="Dashboard" subtitle="Welcome back, Keanu">
+    <AppLayout title="Dashboard" subtitle="Welcome back, Heath">
       {/* Quick Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <StatCard

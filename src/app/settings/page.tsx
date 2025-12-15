@@ -65,9 +65,9 @@ export default function SettingsPage() {
                 <h2 className="text-lg font-semibold text-gray-900 mb-6">Profile Settings</h2>
                 <div className="space-y-6">
                   <div className="flex items-center gap-4">
-                    <div className="w-20 h-20 bg-gray-300 rounded-full overflow-hidden">
+                    <div className="w-20 h-20 rounded-full overflow-hidden">
                       <img
-                        src="https://api.dicebear.com/7.x/avataaars/svg?seed=Keanu"
+                        src="/avatar.svg"
                         alt="Avatar"
                         className="w-full h-full object-cover"
                       />
@@ -86,7 +86,7 @@ export default function SettingsPage() {
                       </label>
                       <input
                         type="text"
-                        defaultValue="Keanu"
+                        defaultValue="Heath"
                         className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
                       />
                     </div>
@@ -96,7 +96,7 @@ export default function SettingsPage() {
                       </label>
                       <input
                         type="text"
-                        defaultValue="Reeves"
+                        defaultValue="Maes"
                         className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
                       />
                     </div>

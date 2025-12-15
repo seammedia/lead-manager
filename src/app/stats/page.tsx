@@ -19,7 +19,7 @@ export default function StatsPage() {
   };
 
   return (
-    <AppLayout title="Stats" subtitle="Welcome back, Keanu">
+    <AppLayout title="Stats" subtitle="Welcome back, Heath">
       <div className="mb-6 flex items-center justify-between">
         <h2 className="text-xl font-semibold text-gray-900">Performance Overview</h2>
         <div className="relative">

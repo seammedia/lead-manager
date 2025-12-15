@@ -116,7 +116,7 @@ export default function InboxPage() {
   };
 
   return (
-    <AppLayout title="Inbox" subtitle="Welcome back, Keanu">
+    <AppLayout title="Inbox" subtitle="Welcome back, Heath">
       <div className="bg-white rounded-xl border border-gray-200 h-[calc(100vh-180px)] flex">
         {/* Sidebar */}
         <div className="w-56 border-r border-gray-200 p-4">

@@ -34,12 +34,12 @@ export function Header({ title, subtitle }: HeaderProps) {
 
         <div className="flex items-center gap-3">
           <div className="text-right">
-            <p className="text-sm font-medium text-gray-900">Keanu Reeves</p>
+            <p className="text-sm font-medium text-gray-900">Heath Maes</p>
             <p className="text-xs text-gray-500">Admin</p>
           </div>
-          <div className="w-9 h-9 bg-gray-300 rounded-full overflow-hidden">
+          <div className="w-9 h-9 rounded-full overflow-hidden">
             <img
-              src="https://api.dicebear.com/7.x/avataaars/svg?seed=Keanu"
+              src="/avatar.svg"
               alt="Avatar"
               className="w-full h-full object-cover"
             />
