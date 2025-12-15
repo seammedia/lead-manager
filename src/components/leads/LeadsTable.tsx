@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { Lead, LeadStage, LeadSource } from "@/types";
 import { LeadStageTag } from "./LeadStageTag";
 import { getInitials, getAvatarColor, formatDate } from "@/lib/utils";
@@ -16,6 +17,7 @@ import {
   Archive,
   Mail,
   Trash2,
+  Send,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -28,6 +30,7 @@ interface LeadsTableProps {
   onDeleteLead?: (leadId: string) => void;
   onArchiveLead?: (leadId: string) => void;
   onFollowUpEmail?: (lead: Lead) => void;
+  onOnboardingEmail?: (lead: Lead) => void;
   showArchived?: boolean;
 }
 
@@ -49,7 +52,7 @@ const sourceConfig: Record<LeadSource, { label: string; className: string }> = {
   other: { label: "Other", className: "bg-gray-100 text-gray-700" },
 };
 
-// Editable Dropdown Component
+// Editable Dropdown Component with Portal
 function EditableDropdown<T extends string>({
   value,
   options,
@@ -64,11 +67,28 @@ function EditableDropdown<T extends string>({
   renderValue: (value: T) => React.ReactNode;
 }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [position, setPosition] = useState({ top: 0, left: 0 });
+  const buttonRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const updatePosition = useCallback(() => {
+    if (buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      setPosition({
+        top: rect.bottom + 4,
+        left: rect.left,
+      });
+    }
+  }, []);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node) &&
+        buttonRef.current &&
+        !buttonRef.current.contains(event.target as Node)
+      ) {
         setIsOpen(false);
       }
     }
@@ -76,9 +96,46 @@ function EditableDropdown<T extends string>({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  useEffect(() => {
+    if (isOpen) {
+      updatePosition();
+      window.addEventListener("scroll", updatePosition, true);
+      window.addEventListener("resize", updatePosition);
+      return () => {
+        window.removeEventListener("scroll", updatePosition, true);
+        window.removeEventListener("resize", updatePosition);
+      };
+    }
+  }, [isOpen, updatePosition]);
+
+  const dropdown = isOpen && typeof document !== "undefined" ? createPortal(
+    <div
+      ref={dropdownRef}
+      className="fixed bg-white rounded-lg shadow-lg border border-gray-200 py-1 min-w-[160px]"
+      style={{ top: position.top, left: position.left, zIndex: 9999 }}
+    >
+      {options.map((option) => (
+        <button
+          key={option}
+          onClick={(e) => {
+            e.stopPropagation();
+            onChange(option);
+            setIsOpen(false);
+          }}
+          className="w-full flex items-center justify-between px-3 py-2 text-sm text-left hover:bg-gray-50 transition-colors"
+        >
+          {renderOption(option)}
+          {option === value && <Check className="w-4 h-4 text-green-500" />}
+        </button>
+      ))}
+    </div>,
+    document.body
+  ) : null;
+
   return (
-    <div className="relative" ref={dropdownRef}>
+    <>
       <button
+        ref={buttonRef}
         onClick={(e) => {
           e.stopPropagation();
           setIsOpen(!isOpen);
@@ -88,49 +145,50 @@ function EditableDropdown<T extends string>({
         {renderValue(value)}
         <ChevronDown className="w-3 h-3 text-gray-400" />
       </button>
-
-      {isOpen && (
-        <div className="absolute top-full left-0 mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 min-w-[160px]">
-          {options.map((option) => (
-            <button
-              key={option}
-              onClick={(e) => {
-                e.stopPropagation();
-                onChange(option);
-                setIsOpen(false);
-              }}
-              className="w-full flex items-center justify-between px-3 py-2 text-sm text-left hover:bg-gray-50 transition-colors"
-            >
-              {renderOption(option)}
-              {option === value && <Check className="w-4 h-4 text-green-500" />}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
+      {dropdown}
+    </>
   );
 }
 
-// Actions Menu Component
+// Actions Menu Component with Portal
 function ActionsMenu({
   lead,
   onArchive,
   onFollowUp,
+  onOnboarding,
   onDelete,
   isArchived,
 }: {
   lead: Lead;
   onArchive?: () => void;
   onFollowUp?: () => void;
+  onOnboarding?: () => void;
   onDelete?: () => void;
   isArchived?: boolean;
 }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [position, setPosition] = useState({ top: 0, right: 0 });
+  const buttonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  const updatePosition = useCallback(() => {
+    if (buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      setPosition({
+        top: rect.bottom + 4,
+        right: window.innerWidth - rect.right,
+      });
+    }
+  }, []);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+      if (
+        menuRef.current &&
+        !menuRef.current.contains(event.target as Node) &&
+        buttonRef.current &&
+        !buttonRef.current.contains(event.target as Node)
+      ) {
         setIsOpen(false);
       }
     }
@@ -138,9 +196,79 @@ function ActionsMenu({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  return (
-    <div className="relative" ref={menuRef}>
+  useEffect(() => {
+    if (isOpen) {
+      updatePosition();
+      window.addEventListener("scroll", updatePosition, true);
+      window.addEventListener("resize", updatePosition);
+      return () => {
+        window.removeEventListener("scroll", updatePosition, true);
+        window.removeEventListener("resize", updatePosition);
+      };
+    }
+  }, [isOpen, updatePosition]);
+
+  const menu = isOpen && typeof document !== "undefined" ? createPortal(
+    <div
+      ref={menuRef}
+      className="fixed bg-white rounded-lg shadow-lg border border-gray-200 py-1 min-w-[180px]"
+      style={{ top: position.top, right: position.right, zIndex: 9999 }}
+    >
       <button
+        onClick={(e) => {
+          e.stopPropagation();
+          onArchive?.();
+          setIsOpen(false);
+        }}
+        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-gray-50 transition-colors text-gray-700"
+      >
+        <Archive className="w-4 h-4" />
+        {isArchived ? "Unarchive" : "Archive"}
+      </button>
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          onOnboarding?.();
+          setIsOpen(false);
+        }}
+        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-gray-50 transition-colors text-gray-700"
+      >
+        <Send className="w-4 h-4" />
+        Send Onboarding Email
+      </button>
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          onFollowUp?.();
+          setIsOpen(false);
+        }}
+        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-gray-50 transition-colors text-gray-700"
+      >
+        <Mail className="w-4 h-4" />
+        Follow Up Email
+      </button>
+      <div className="border-t border-gray-100 my-1" />
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          if (confirm(`Are you sure you want to delete ${lead.name}?`)) {
+            onDelete?.();
+          }
+          setIsOpen(false);
+        }}
+        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-red-50 transition-colors text-red-600"
+      >
+        <Trash2 className="w-4 h-4" />
+        Delete
+      </button>
+    </div>,
+    document.body
+  ) : null;
+
+  return (
+    <>
+      <button
+        ref={buttonRef}
         onClick={(e) => {
           e.stopPropagation();
           setIsOpen(!isOpen);
@@ -149,48 +277,8 @@ function ActionsMenu({
       >
         <MoreHorizontal className="w-5 h-5 text-gray-400" />
       </button>
-
-      {isOpen && (
-        <div className="absolute top-full right-0 mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 min-w-[160px]">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onArchive?.();
-              setIsOpen(false);
-            }}
-            className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-gray-50 transition-colors text-gray-700"
-          >
-            <Archive className="w-4 h-4" />
-            {isArchived ? "Unarchive" : "Archive"}
-          </button>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onFollowUp?.();
-              setIsOpen(false);
-            }}
-            className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-gray-50 transition-colors text-gray-700"
-          >
-            <Mail className="w-4 h-4" />
-            Follow Up Email
-          </button>
-          <div className="border-t border-gray-100 my-1" />
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              if (confirm(`Are you sure you want to delete ${lead.name}?`)) {
-                onDelete?.();
-              }
-              setIsOpen(false);
-            }}
-            className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-red-50 transition-colors text-red-600"
-          >
-            <Trash2 className="w-4 h-4" />
-            Delete
-          </button>
-        </div>
-      )}
-    </div>
+      {menu}
+    </>
   );
 }
 
@@ -203,6 +291,7 @@ export function LeadsTable({
   onDeleteLead,
   onArchiveLead,
   onFollowUpEmail,
+  onOnboardingEmail,
   showArchived = false,
 }: LeadsTableProps) {
   const [searchQuery, setSearchQuery] = useState("");
@@ -425,6 +514,7 @@ export function LeadsTable({
                   <ActionsMenu
                     lead={lead}
                     onArchive={() => onArchiveLead?.(lead.id)}
+                    onOnboarding={() => onOnboardingEmail?.(lead)}
                     onFollowUp={() => onFollowUpEmail?.(lead)}
                     onDelete={() => onDeleteLead?.(lead.id)}
                     isArchived={showArchived}

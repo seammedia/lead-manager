@@ -21,6 +21,7 @@ export default function LeadsPage() {
   const [viewMode, setViewMode] = useState<ViewMode>("table");
   const [isComposeOpen, setIsComposeOpen] = useState(false);
   const [composeToLead, setComposeToLead] = useState<Lead | null>(null);
+  const [composeType, setComposeType] = useState<"followup" | "onboarding">("followup");
   const [showArchived, setShowArchived] = useState(false);
 
   // Fetch leads from API
@@ -173,6 +174,13 @@ export default function LeadsPage() {
 
   const handleFollowUpEmail = (lead: Lead) => {
     setComposeToLead(lead);
+    setComposeType("followup");
+    setIsComposeOpen(true);
+  };
+
+  const handleOnboardingEmail = (lead: Lead) => {
+    setComposeToLead(lead);
+    setComposeType("onboarding");
     setIsComposeOpen(true);
   };
 
@@ -303,6 +311,7 @@ export default function LeadsPage() {
               onDeleteLead={handleDeleteLead}
               onArchiveLead={showArchived ? handleUnarchiveLead : handleArchiveLead}
               onFollowUpEmail={handleFollowUpEmail}
+              onOnboardingEmail={handleOnboardingEmail}
               showArchived={showArchived}
             />
           ) : (
@@ -322,12 +331,14 @@ export default function LeadsPage() {
         lead={selectedLead}
       />
 
-      {/* Follow Up Email Modal */}
+      {/* Email Modal */}
       {isComposeOpen && composeToLead && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl w-full max-w-2xl max-h-[80vh] flex flex-col">
             <div className="flex items-center justify-between p-4 border-b border-gray-200">
-              <h2 className="text-lg font-semibold text-gray-900">Follow Up Email</h2>
+              <h2 className="text-lg font-semibold text-gray-900">
+                {composeType === "onboarding" ? "Send Onboarding Email" : "Follow Up Email"}
+              </h2>
               <button
                 onClick={() => {
                   setIsComposeOpen(false);
@@ -359,7 +370,9 @@ export default function LeadsPage() {
                 </label>
                 <input
                   type="text"
-                  defaultValue={`Following up${composeToLead.company ? ` - ${composeToLead.company}` : ""}`}
+                  defaultValue={composeType === "onboarding"
+                    ? `Welcome to Seam Media${composeToLead.company ? ` - ${composeToLead.company}` : ""}`
+                    : `Following up${composeToLead.company ? ` - ${composeToLead.company}` : ""}`}
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
                 />
               </div>
@@ -369,7 +382,9 @@ export default function LeadsPage() {
                 </label>
                 <textarea
                   rows={10}
-                  defaultValue={`Hi ${composeToLead.name.split(" ")[0]},\n\nI wanted to follow up on our previous conversation.${composeToLead.company ? ` I'd love to schedule a time to discuss how we can help ${composeToLead.company}.` : ""}\n\nWould you be available for a quick call this week?\n\nBest regards,\nHeath Maes\nSeam Media`}
+                  defaultValue={composeType === "onboarding"
+                    ? `Hi ${composeToLead.name.split(" ")[0]},\n\nWelcome to Seam Media! We're thrilled to have you on board.\n\nI wanted to personally reach out and introduce myself. I'll be your main point of contact throughout our partnership.\n\nHere's what happens next:\n1. We'll schedule a kickoff call to discuss your goals\n2. Our team will begin the onboarding process\n3. You'll receive access to our client portal\n\nPlease let me know if you have any questions or if there's anything specific you'd like to discuss.\n\nLooking forward to working with you!\n\nBest regards,\nHeath Maes\nSeam Media`
+                    : `Hi ${composeToLead.name.split(" ")[0]},\n\nI wanted to follow up on our previous conversation.${composeToLead.company ? ` I'd love to schedule a time to discuss how we can help ${composeToLead.company}.` : ""}\n\nWould you be available for a quick call this week?\n\nBest regards,\nHeath Maes\nSeam Media`}
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
                 />
               </div>
