@@ -18,6 +18,8 @@ export default function LeadsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>("table");
+  const [isComposeOpen, setIsComposeOpen] = useState(false);
+  const [composeToLead, setComposeToLead] = useState<Lead | null>(null);
 
   const topOpportunities = getTopOpportunities(leads);
 
@@ -49,6 +51,27 @@ export default function LeadsPage() {
           : lead
       )
     );
+  };
+
+  const handleDeleteLead = (leadId: string) => {
+    setLeads((prev) => prev.filter((lead) => lead.id !== leadId));
+  };
+
+  const handleArchiveLead = (leadId: string) => {
+    // For now, we'll move to "lost" stage as archive
+    // In a full implementation, you'd have a separate archived field
+    setLeads((prev) =>
+      prev.map((lead) =>
+        lead.id === leadId
+          ? { ...lead, stage: "lost" as LeadStage, updated_at: new Date().toISOString() }
+          : lead
+      )
+    );
+  };
+
+  const handleFollowUpEmail = (lead: Lead) => {
+    setComposeToLead(lead);
+    setIsComposeOpen(true);
   };
 
   const handleSaveLead = (leadData: Partial<Lead>) => {
@@ -134,6 +157,10 @@ export default function LeadsPage() {
           onAddLead={handleAddLead}
           onEditLead={handleEditLead}
           onStageChange={handleStageChange}
+          onUpdateLead={handleUpdateLead}
+          onDeleteLead={handleDeleteLead}
+          onArchiveLead={handleArchiveLead}
+          onFollowUpEmail={handleFollowUpEmail}
         />
       ) : (
         <KanbanBoard
@@ -149,6 +176,87 @@ export default function LeadsPage() {
         onSave={handleSaveLead}
         lead={selectedLead}
       />
+
+      {/* Follow Up Email Modal */}
+      {isComposeOpen && composeToLead && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl w-full max-w-2xl max-h-[80vh] flex flex-col">
+            <div className="flex items-center justify-between p-4 border-b border-gray-200">
+              <h2 className="text-lg font-semibold text-gray-900">Follow Up Email</h2>
+              <button
+                onClick={() => {
+                  setIsComposeOpen(false);
+                  setComposeToLead(null);
+                }}
+                className="p-1 hover:bg-gray-100 rounded transition-colors text-gray-500"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  To
+                </label>
+                <input
+                  type="email"
+                  defaultValue={composeToLead.email}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent bg-gray-50"
+                  readOnly
+                />
+                <p className="mt-1 text-xs text-gray-500">
+                  {composeToLead.name} at {composeToLead.company}
+                </p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Subject
+                </label>
+                <input
+                  type="text"
+                  defaultValue={`Following up - ${composeToLead.company}`}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Message
+                </label>
+                <textarea
+                  rows={10}
+                  defaultValue={`Hi ${composeToLead.name.split(" ")[0]},\n\nI wanted to follow up on our previous conversation. I'd love to schedule a time to discuss how we can help ${composeToLead.company}.\n\nWould you be available for a quick call this week?\n\nBest regards,\nHeath Maes\nSeam Media`}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
+                />
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-2 p-4 border-t border-gray-200">
+              <button
+                onClick={() => {
+                  setIsComposeOpen(false);
+                  setComposeToLead(null);
+                }}
+                className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  // Update last_contacted
+                  handleUpdateLead(composeToLead.id, {
+                    last_contacted: new Date().toISOString(),
+                  });
+                  setIsComposeOpen(false);
+                  setComposeToLead(null);
+                  alert("Email sent! (In production, this would send via Gmail API)");
+                }}
+                className="px-4 py-2 bg-green-500 text-white rounded-lg text-sm font-medium hover:bg-green-600 transition-colors"
+              >
+                Send Email
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </AppLayout>
   );
 }
