@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { AppLayout } from "@/components/AppLayout";
 import {
   User,
@@ -11,7 +12,7 @@ import {
   Database,
   Key,
   Check,
-  X,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -26,9 +27,51 @@ const tabs = [
   { id: "data" as SettingsTab, label: "Data & Export", icon: Database },
 ];
 
-export default function SettingsPage() {
+function SettingsContent() {
+  const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<SettingsTab>("profile");
   const [gmailConnected, setGmailConnected] = useState(false);
+  const [connectedEmail, setConnectedEmail] = useState<string | null>(null);
+  const [isConnecting, setIsConnecting] = useState(false);
+
+  // Check for Gmail OAuth callback
+  useEffect(() => {
+    const success = searchParams.get("success");
+    const email = searchParams.get("email");
+    const error = searchParams.get("error");
+
+    if (success === "true" && email) {
+      setGmailConnected(true);
+      setConnectedEmail(email);
+      setActiveTab("email"); // Switch to email tab to show connection
+      // Clear the URL params
+      window.history.replaceState({}, "", "/settings");
+    }
+
+    if (error) {
+      alert(`Gmail connection failed: ${error}`);
+      window.history.replaceState({}, "", "/settings");
+    }
+  }, [searchParams]);
+
+  const handleConnectGmail = async () => {
+    setIsConnecting(true);
+    try {
+      const response = await fetch("/api/gmail/auth");
+      const data = await response.json();
+      if (data.url) {
+        window.location.href = data.url;
+      }
+    } catch (error) {
+      console.error("Failed to connect Gmail:", error);
+      setIsConnecting(false);
+    }
+  };
+
+  const handleDisconnectGmail = () => {
+    setGmailConnected(false);
+    setConnectedEmail(null);
+  };
 
   return (
     <AppLayout title="Settings" subtitle="Manage your account settings">
@@ -108,7 +151,7 @@ export default function SettingsPage() {
                     </label>
                     <input
                       type="email"
-                      defaultValue="keanu@seammedia.com"
+                      defaultValue="contact@seammedia.com.au"
                       className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
                     />
                   </div>
@@ -157,7 +200,7 @@ export default function SettingsPage() {
                             Connected
                           </span>
                           <button
-                            onClick={() => setGmailConnected(false)}
+                            onClick={handleDisconnectGmail}
                             className="px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                           >
                             Disconnect
@@ -165,23 +208,31 @@ export default function SettingsPage() {
                         </>
                       ) : (
                         <button
-                          onClick={() => setGmailConnected(true)}
-                          className="px-4 py-2 bg-green-500 text-white rounded-lg text-sm font-medium hover:bg-green-600 transition-colors"
+                          onClick={handleConnectGmail}
+                          disabled={isConnecting}
+                          className="px-4 py-2 bg-green-500 text-white rounded-lg text-sm font-medium hover:bg-green-600 transition-colors disabled:opacity-50 flex items-center gap-2"
                         >
-                          Connect Gmail
+                          {isConnecting ? (
+                            <>
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                              Connecting...
+                            </>
+                          ) : (
+                            "Connect Gmail"
+                          )}
                         </button>
                       )}
                     </div>
                   </div>
 
-                  {gmailConnected && (
+                  {gmailConnected && connectedEmail && (
                     <div className="mt-4 pt-4 border-t border-gray-200">
                       <p className="text-sm text-gray-600 mb-2">Connected Account</p>
                       <div className="flex items-center gap-2">
                         <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
                           <User className="w-4 h-4 text-gray-500" />
                         </div>
-                        <span className="text-sm text-gray-900">keanu@gmail.com</span>
+                        <span className="text-sm text-gray-900">{connectedEmail}</span>
                       </div>
                     </div>
                   )}
@@ -413,5 +464,19 @@ export default function SettingsPage() {
         </div>
       </div>
     </AppLayout>
+  );
+}
+
+export default function SettingsPage() {
+  return (
+    <Suspense fallback={
+      <AppLayout title="Settings" subtitle="Manage your account settings">
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="w-8 h-8 animate-spin text-green-500" />
+        </div>
+      </AppLayout>
+    }>
+      <SettingsContent />
+    </Suspense>
   );
 }
