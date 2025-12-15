@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { AppLayout } from "@/components/AppLayout";
 import {
   Mail,
@@ -13,6 +14,7 @@ import {
   MoreHorizontal,
   Paperclip,
   Clock,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getInitials, getAvatarColor } from "@/lib/utils";
@@ -89,11 +91,41 @@ const mockEmails: Email[] = [
 
 type Folder = "inbox" | "sent" | "starred" | "trash";
 
-export default function InboxPage() {
+function InboxContent() {
+  const searchParams = useSearchParams();
   const [selectedFolder, setSelectedFolder] = useState<Folder>("inbox");
   const [selectedEmail, setSelectedEmail] = useState<Email | null>(null);
   const [emails, setEmails] = useState(mockEmails);
   const [isComposing, setIsComposing] = useState(false);
+  const [gmailConnected, setGmailConnected] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [connectedEmail, setConnectedEmail] = useState<string | null>(null);
+
+  // Check for Gmail OAuth callback
+  useEffect(() => {
+    const success = searchParams.get("success");
+    const email = searchParams.get("email");
+    if (success === "true" && email) {
+      setGmailConnected(true);
+      setConnectedEmail(email);
+      // Clear the URL params
+      window.history.replaceState({}, "", "/inbox");
+    }
+  }, [searchParams]);
+
+  const handleConnectGmail = async () => {
+    setIsConnecting(true);
+    try {
+      const response = await fetch("/api/gmail/auth");
+      const data = await response.json();
+      if (data.url) {
+        window.location.href = data.url;
+      }
+    } catch (error) {
+      console.error("Failed to connect Gmail:", error);
+      setIsConnecting(false);
+    }
+  };
 
   const folders = [
     { id: "inbox" as Folder, label: "Inbox", icon: InboxIcon, count: 2 },
@@ -158,13 +190,47 @@ export default function InboxPage() {
 
           <div className="mt-6 p-3 bg-gray-50 rounded-lg">
             <p className="text-xs text-gray-500 mb-2">Gmail Status</p>
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 bg-yellow-500 rounded-full" />
-              <span className="text-sm text-gray-600">Not Connected</span>
-            </div>
-            <button className="mt-2 text-xs text-green-600 hover:text-green-700 font-medium">
-              Connect Gmail
-            </button>
+            {gmailConnected ? (
+              <>
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-green-500 rounded-full" />
+                  <span className="text-sm text-gray-600">Connected</span>
+                </div>
+                {connectedEmail && (
+                  <p className="mt-1 text-xs text-gray-500 truncate">{connectedEmail}</p>
+                )}
+                <button
+                  onClick={() => {
+                    setGmailConnected(false);
+                    setConnectedEmail(null);
+                  }}
+                  className="mt-2 text-xs text-red-600 hover:text-red-700 font-medium"
+                >
+                  Disconnect
+                </button>
+              </>
+            ) : (
+              <>
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-yellow-500 rounded-full" />
+                  <span className="text-sm text-gray-600">Not Connected</span>
+                </div>
+                <button
+                  onClick={handleConnectGmail}
+                  disabled={isConnecting}
+                  className="mt-2 text-xs text-green-600 hover:text-green-700 font-medium disabled:opacity-50 flex items-center gap-1"
+                >
+                  {isConnecting ? (
+                    <>
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                      Connecting...
+                    </>
+                  ) : (
+                    "Connect Gmail"
+                  )}
+                </button>
+              </>
+            )}
           </div>
         </div>
 
@@ -364,5 +430,19 @@ export default function InboxPage() {
         </div>
       )}
     </AppLayout>
+  );
+}
+
+export default function InboxPage() {
+  return (
+    <Suspense fallback={
+      <AppLayout title="Inbox" subtitle="Welcome back, Heath">
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="w-8 h-8 animate-spin text-green-500" />
+        </div>
+      </AppLayout>
+    }>
+      <InboxContent />
+    </Suspense>
   );
 }

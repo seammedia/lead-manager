@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Lead } from "@/types";
+import { Lead, LeadStage } from "@/types";
 import { LeadStageTag } from "./LeadStageTag";
 import { getInitials, getAvatarColor, formatDate } from "@/lib/utils";
 import { Search, Plus, MoreHorizontal, ChevronLeft, ChevronRight } from "lucide-react";
@@ -10,11 +10,12 @@ interface LeadsTableProps {
   leads: Lead[];
   onAddLead: () => void;
   onEditLead: (lead: Lead) => void;
+  onStageChange: (leadId: string, newStage: LeadStage) => void;
 }
 
 const ITEMS_PER_PAGE = 6;
 
-export function LeadsTable({ leads, onAddLead, onEditLead }: LeadsTableProps) {
+export function LeadsTable({ leads, onAddLead, onEditLead, onStageChange }: LeadsTableProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -102,7 +103,11 @@ export function LeadsTable({ leads, onAddLead, onEditLead }: LeadsTableProps) {
                   </div>
                 </td>
                 <td className="px-4 py-4">
-                  <LeadStageTag stage={lead.stage} />
+                  <LeadStageTag
+                    stage={lead.stage}
+                    editable
+                    onStageChange={(newStage) => onStageChange(lead.id, newStage)}
+                  />
                 </td>
                 <td className="px-4 py-4 text-sm text-gray-600">{lead.owner}</td>
                 <td className="px-4 py-4 text-sm text-gray-600 capitalize">{lead.source}</td>
