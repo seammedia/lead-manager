@@ -12,6 +12,7 @@ export interface Lead {
   source: LeadSource;
   owner: string;
   conversion_probability: number;
+  revenue: number | null;
   notes: string | null;
   last_contacted: string | null;
   created_at: string;

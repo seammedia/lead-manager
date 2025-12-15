@@ -31,7 +31,7 @@ interface LeadsTableProps {
   showArchived?: boolean;
 }
 
-type SortField = "name" | "stage" | "owner" | "source" | "last_contacted" | "created_at";
+type SortField = "name" | "stage" | "owner" | "source" | "revenue" | "last_contacted" | "created_at";
 type SortDirection = "asc" | "desc";
 
 const ITEMS_PER_PAGE = 6;
@@ -245,6 +245,11 @@ export function LeadsTable({
       case "source":
         comparison = a.source.localeCompare(b.source);
         break;
+      case "revenue":
+        const revA = a.revenue || 0;
+        const revB = b.revenue || 0;
+        comparison = revA - revB;
+        break;
       case "last_contacted":
         const dateA = a.last_contacted ? new Date(a.last_contacted).getTime() : 0;
         const dateB = b.last_contacted ? new Date(b.last_contacted).getTime() : 0;
@@ -318,6 +323,7 @@ export function LeadsTable({
               <SortableHeader field="stage">Stage</SortableHeader>
               <SortableHeader field="owner">Owner</SortableHeader>
               <SortableHeader field="source">Source</SortableHeader>
+              <SortableHeader field="revenue">Revenue</SortableHeader>
               <SortableHeader field="last_contacted">Last Contacted</SortableHeader>
               <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Actions
@@ -404,6 +410,15 @@ export function LeadsTable({
                       );
                     }}
                   />
+                </td>
+                <td className="px-4 py-4 text-sm text-gray-600">
+                  {lead.revenue ? (
+                    <span className="font-medium text-green-600">
+                      ${lead.revenue.toLocaleString()}
+                    </span>
+                  ) : (
+                    <span className="text-gray-400">-</span>
+                  )}
                 </td>
                 <td className="px-4 py-4 text-sm text-gray-600">
                   {lead.last_contacted ? formatDate(lead.last_contacted) : "Never"}

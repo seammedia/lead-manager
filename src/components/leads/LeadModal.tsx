@@ -42,6 +42,7 @@ export function LeadModal({ isOpen, onClose, onSave, lead }: LeadModalProps) {
     source: "website" as LeadSource,
     owner: "Heath Maes",
     conversion_probability: 20,
+    revenue: "" as string | number,
     notes: "",
   });
 
@@ -56,6 +57,7 @@ export function LeadModal({ isOpen, onClose, onSave, lead }: LeadModalProps) {
         source: lead.source,
         owner: lead.owner,
         conversion_probability: lead.conversion_probability,
+        revenue: lead.revenue || "",
         notes: lead.notes || "",
       });
     } else {
@@ -68,6 +70,7 @@ export function LeadModal({ isOpen, onClose, onSave, lead }: LeadModalProps) {
         source: "website",
         owner: "Heath Maes",
         conversion_probability: 20,
+        revenue: "",
         notes: "",
       });
     }
@@ -79,6 +82,7 @@ export function LeadModal({ isOpen, onClose, onSave, lead }: LeadModalProps) {
     e.preventDefault();
     onSave({
       ...formData,
+      revenue: formData.revenue ? Number(formData.revenue) : null,
       id: lead?.id,
     });
     onClose();
@@ -115,11 +119,10 @@ export function LeadModal({ isOpen, onClose, onSave, lead }: LeadModalProps) {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Company *
+                Company
               </label>
               <input
                 type="text"
-                required
                 value={formData.company}
                 onChange={(e) => setFormData({ ...formData, company: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
@@ -191,11 +194,10 @@ export function LeadModal({ isOpen, onClose, onSave, lead }: LeadModalProps) {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Owner *
+                Owner
               </label>
               <input
                 type="text"
-                required
                 value={formData.owner}
                 onChange={(e) => setFormData({ ...formData, owner: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
@@ -216,6 +218,21 @@ export function LeadModal({ isOpen, onClose, onSave, lead }: LeadModalProps) {
                 className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
               />
             </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Revenue ($)
+            </label>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="Enter revenue when converted"
+              value={formData.revenue}
+              onChange={(e) => setFormData({ ...formData, revenue: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+            />
           </div>
 
           <div>

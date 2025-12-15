@@ -135,13 +135,14 @@ export default function LeadsPage() {
       const newLead: Lead = {
         id: `${Date.now()}`,
         name: leadData.name!,
-        company: leadData.company!,
+        company: leadData.company || "",
         email: leadData.email!,
         phone: leadData.phone || null,
         stage: leadData.stage || "new",
         source: leadData.source || "website",
-        owner: leadData.owner!,
+        owner: leadData.owner || "Heath Maes",
         conversion_probability: leadData.conversion_probability || 20,
+        revenue: leadData.revenue || null,
         notes: leadData.notes || null,
         last_contacted: null,
         created_at: new Date().toISOString(),
@@ -227,7 +228,7 @@ export default function LeadsPage() {
         />
       ) : (
         <KanbanBoard
-          leads={leads}
+          leads={leads.filter(l => showArchived ? l.archived : !l.archived)}
           onUpdateLead={handleUpdateLead}
           onEditLead={handleEditLead}
         />
