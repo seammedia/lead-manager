@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { LeadStage } from "@/types";
 import { cn } from "@/lib/utils";
 import { ChevronDown, Check } from "lucide-react";
@@ -46,18 +47,47 @@ const stageOrder: LeadStage[] = ["new", "interested", "contacted", "negotiation"
 
 export function LeadStageTag({ stage, editable = false, onStageChange }: LeadStageTagProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 });
+  const buttonRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const config = stageConfig[stage];
 
+  const updatePosition = useCallback(() => {
+    if (buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      setDropdownPosition({
+        top: rect.bottom + 4,
+        left: rect.left,
+      });
+    }
+  }, []);
+
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node) &&
+        buttonRef.current &&
+        !buttonRef.current.contains(event.target as Node)
+      ) {
         setIsOpen(false);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    if (isOpen) {
+      updatePosition();
+      window.addEventListener("scroll", updatePosition, true);
+      window.addEventListener("resize", updatePosition);
+      return () => {
+        window.removeEventListener("scroll", updatePosition, true);
+        window.removeEventListener("resize", updatePosition);
+      };
+    }
+  }, [isOpen, updatePosition]);
 
   const handleStageSelect = (newStage: LeadStage) => {
     if (onStageChange && newStage !== stage) {
@@ -79,9 +109,53 @@ export function LeadStageTag({ stage, editable = false, onStageChange }: LeadSta
     );
   }
 
+  const dropdown = isOpen && typeof document !== "undefined" ? createPortal(
+    <div
+      ref={dropdownRef}
+      className="fixed bg-white rounded-lg shadow-lg border border-gray-200 py-1 min-w-[140px]"
+      style={{
+        top: dropdownPosition.top,
+        left: dropdownPosition.left,
+        zIndex: 9999,
+      }}
+    >
+      {stageOrder.map((s) => {
+        const sConfig = stageConfig[s];
+        return (
+          <button
+            key={s}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleStageSelect(s);
+            }}
+            className="w-full flex items-center justify-between px-3 py-2 text-sm text-left hover:bg-gray-50 transition-colors"
+          >
+            <div className="flex items-center gap-2">
+              <span
+                className="w-2 h-2 rounded-full"
+                style={{
+                  backgroundColor: s === "new" ? "#3b82f6" :
+                    s === "interested" ? "#22c55e" :
+                    s === "contacted" ? "#eab308" :
+                    s === "negotiation" ? "#f97316" :
+                    s === "demo" ? "#a855f7" :
+                    s === "converted" ? "#10b981" : "#ef4444"
+                }}
+              />
+              <span className="text-gray-700">{sConfig.label}</span>
+            </div>
+            {s === stage && <Check className="w-4 h-4 text-green-500" />}
+          </button>
+        );
+      })}
+    </div>,
+    document.body
+  ) : null;
+
   return (
-    <div className="relative" ref={dropdownRef}>
+    <>
       <button
+        ref={buttonRef}
         onClick={(e) => {
           e.stopPropagation();
           setIsOpen(!isOpen);
@@ -94,43 +168,7 @@ export function LeadStageTag({ stage, editable = false, onStageChange }: LeadSta
         {config.label}
         <ChevronDown className="w-3 h-3" />
       </button>
-
-      {isOpen && (
-        <div className="absolute top-full left-0 mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 min-w-[140px]">
-          {stageOrder.map((s) => {
-            const sConfig = stageConfig[s];
-            return (
-              <button
-                key={s}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleStageSelect(s);
-                }}
-                className="w-full flex items-center justify-between px-3 py-2 text-sm text-left hover:bg-gray-50 transition-colors"
-              >
-                <div className="flex items-center gap-2">
-                  <span
-                    className={cn(
-                      "w-2 h-2 rounded-full",
-                      sConfig.className.split(" ")[0].replace("bg-", "bg-").replace("-100", "-500")
-                    )}
-                    style={{
-                      backgroundColor: s === "new" ? "#3b82f6" :
-                        s === "interested" ? "#22c55e" :
-                        s === "contacted" ? "#eab308" :
-                        s === "negotiation" ? "#f97316" :
-                        s === "demo" ? "#a855f7" :
-                        s === "converted" ? "#10b981" : "#ef4444"
-                    }}
-                  />
-                  <span className="text-gray-700">{sConfig.label}</span>
-                </div>
-                {s === stage && <Check className="w-4 h-4 text-green-500" />}
-              </button>
-            );
-          })}
-        </div>
-      )}
-    </div>
+      {dropdown}
+    </>
   );
 }
