@@ -4,7 +4,19 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { Lead, LeadStage, LeadSource } from "@/types";
 import { LeadStageTag } from "./LeadStageTag";
-import { getInitials, getAvatarColor, formatDate } from "@/lib/utils";
+import { getInitials, getAvatarColor, formatRelativeTime } from "@/lib/utils";
+
+// Stage priority: higher number = higher priority (shown first)
+const stagePriority: Record<LeadStage, number> = {
+  converted: 8,
+  onboarding_sent: 7,
+  interested: 6,
+  not_interested: 5,
+  called: 4,
+  contacted_2: 3,
+  contacted_1: 2,
+  new: 1,
+};
 import {
   Search,
   Plus,
@@ -34,7 +46,7 @@ interface LeadsTableProps {
   showArchived?: boolean;
 }
 
-type SortField = "name" | "stage" | "owner" | "source" | "revenue" | "last_contacted" | "created_at";
+type SortField = "name" | "stage" | "owner" | "source" | "revenue" | "next_action" | "last_contacted" | "created_at";
 type SortDirection = "asc" | "desc";
 
 const ITEMS_PER_PAGE = 6;
@@ -282,6 +294,78 @@ function ActionsMenu({
   );
 }
 
+// Editable Next Action Component
+function EditableNextAction({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editValue, setEditValue] = useState(value);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setEditValue(value);
+  }, [value]);
+
+  useEffect(() => {
+    if (isEditing && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [isEditing]);
+
+  const handleSave = () => {
+    setIsEditing(false);
+    if (editValue !== value) {
+      onChange(editValue);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      handleSave();
+    } else if (e.key === "Escape") {
+      setEditValue(value);
+      setIsEditing(false);
+    }
+  };
+
+  if (isEditing) {
+    return (
+      <input
+        ref={inputRef}
+        type="text"
+        value={editValue}
+        onChange={(e) => setEditValue(e.target.value)}
+        onBlur={handleSave}
+        onKeyDown={handleKeyDown}
+        onClick={(e) => e.stopPropagation()}
+        placeholder="Add action..."
+        className="w-full px-2 py-1 text-sm border border-green-500 rounded focus:outline-none focus:ring-2 focus:ring-green-500"
+      />
+    );
+  }
+
+  return (
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        setIsEditing(true);
+      }}
+      className={cn(
+        "text-sm text-left w-full px-2 py-1 rounded hover:bg-gray-100 transition-colors truncate max-w-[150px]",
+        value ? "text-gray-700" : "text-gray-400 italic"
+      )}
+      title={value || "Click to add"}
+    >
+      {value || "Add action..."}
+    </button>
+  );
+}
+
 export function LeadsTable({
   leads,
   onAddLead,
@@ -296,7 +380,7 @@ export function LeadsTable({
 }: LeadsTableProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const [sortField, setSortField] = useState<SortField>("created_at");
+  const [sortField, setSortField] = useState<SortField>("stage");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
 
   const handleSort = (field: SortField) => {
@@ -324,7 +408,8 @@ export function LeadsTable({
         comparison = a.name.localeCompare(b.name);
         break;
       case "stage":
-        comparison = a.stage.localeCompare(b.stage);
+        // Sort by stage priority (higher priority stages first when desc)
+        comparison = stagePriority[a.stage] - stagePriority[b.stage];
         break;
       case "owner":
         comparison = a.owner.localeCompare(b.owner);
@@ -336,6 +421,11 @@ export function LeadsTable({
         const revA = a.revenue || 0;
         const revB = b.revenue || 0;
         comparison = revA - revB;
+        break;
+      case "next_action":
+        const actionA = a.next_action || "";
+        const actionB = b.next_action || "";
+        comparison = actionA.localeCompare(actionB);
         break;
       case "last_contacted":
         const dateA = a.last_contacted ? new Date(a.last_contacted).getTime() : 0;
@@ -411,6 +501,7 @@ export function LeadsTable({
               <SortableHeader field="owner">Owner</SortableHeader>
               <SortableHeader field="source">Source</SortableHeader>
               <SortableHeader field="revenue">Revenue</SortableHeader>
+              <SortableHeader field="next_action">Next Action</SortableHeader>
               <SortableHeader field="last_contacted">Last Contacted</SortableHeader>
               <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Actions
@@ -507,8 +598,21 @@ export function LeadsTable({
                     <span className="text-gray-400">-</span>
                   )}
                 </td>
-                <td className="px-4 py-4 text-sm text-gray-600">
-                  {lead.last_contacted ? formatDate(lead.last_contacted) : "Never"}
+                <td className="px-4 py-4">
+                  <EditableNextAction
+                    value={lead.next_action || ""}
+                    onChange={(value) => onUpdateLead?.(lead.id, { next_action: value || null })}
+                  />
+                </td>
+                <td className="px-4 py-4 text-sm">
+                  {lead.last_contacted ? (
+                    (() => {
+                      const { text, colorClass } = formatRelativeTime(lead.last_contacted);
+                      return <span className={`font-medium ${colorClass}`}>{text}</span>;
+                    })()
+                  ) : (
+                    <span className="text-red-500 font-medium">Never</span>
+                  )}
                 </td>
                 <td className="px-4 py-4">
                   <ActionsMenu

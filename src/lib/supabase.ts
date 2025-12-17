@@ -14,7 +14,7 @@ export function getServiceSupabase() {
   return createClient(supabaseUrl, serviceRoleKey);
 }
 
-export type LeadStage = "new" | "interested" | "contacted" | "negotiation" | "demo" | "converted" | "lost";
+export type LeadStage = "new" | "contacted_1" | "interested" | "contacted_2" | "not_interested" | "converted";
 export type LeadSource = "website" | "linkedin" | "referral" | "email" | "instagram" | "meta_ads" | "google_ads" | "other";
 
 export type Database = {

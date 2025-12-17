@@ -71,12 +71,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Create new lead with defaults for Meta Ads
+    // Stage is "contacted_1" because Zapier sends the first email automatically
     const newLead = {
       name: body.name,
       email: body.email.toLowerCase(),
       company: body.company || "",
       phone: body.phone || null,
-      stage: "new" as const,
+      stage: "contacted_1" as const,
       source: "meta_ads" as const,
       owner: "Heath Maes",
       conversion_probability: 20,
@@ -84,6 +85,7 @@ export async function POST(request: NextRequest) {
       notes: body.notes || null,
       archived: false,
       meta_lead_id: body.meta_lead_id || null,
+      last_contacted: new Date().toISOString(),
     };
 
     const { data: lead, error } = await supabase
@@ -125,9 +127,10 @@ export async function GET() {
     required_fields: ["name", "email"],
     optional_fields: ["company", "phone", "notes", "meta_lead_id"],
     defaults: {
-      stage: "new",
+      stage: "contacted_1",
       source: "meta_ads",
-      owner: "Heath Maes"
+      owner: "Heath Maes",
+      last_contacted: "current timestamp"
     }
   });
 }

@@ -56,7 +56,7 @@ export async function PATCH(
     if (error) {
       console.error("Error updating lead:", error);
       return NextResponse.json(
-        { error: "Failed to update lead" },
+        { error: `Failed to update lead: ${error.message}` },
         { status: 500 }
       );
     }

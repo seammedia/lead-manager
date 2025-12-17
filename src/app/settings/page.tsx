@@ -15,20 +15,33 @@ import {
   Loader2,
   Megaphone,
   RefreshCw,
+  Sparkles,
+  Upload,
+  FileText,
+  X,
+  Save,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-type SettingsTab = "profile" | "email" | "integrations" | "notifications" | "security" | "appearance" | "data";
+type SettingsTab = "profile" | "email" | "integrations" | "ai-assistant" | "notifications" | "security" | "appearance" | "data";
 
 const tabs = [
   { id: "profile" as SettingsTab, label: "Profile", icon: User },
   { id: "email" as SettingsTab, label: "Email Integration", icon: Mail },
   { id: "integrations" as SettingsTab, label: "Lead Sources", icon: Megaphone },
+  { id: "ai-assistant" as SettingsTab, label: "AI Assistant", icon: Sparkles },
   { id: "notifications" as SettingsTab, label: "Notifications", icon: Bell },
   { id: "security" as SettingsTab, label: "Security", icon: Shield },
   { id: "appearance" as SettingsTab, label: "Appearance", icon: Palette },
   { id: "data" as SettingsTab, label: "Data & Export", icon: Database },
 ];
+
+interface Attachment {
+  id: string;
+  name: string;
+  content: string;
+  type: string;
+}
 
 interface MetaPage {
   id: string;
@@ -54,10 +67,100 @@ function SettingsContent() {
 
   const [isLoading, setIsLoading] = useState(true);
 
+  // AI Assistant state
+  const [businessNotes, setBusinessNotes] = useState("");
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [isSavingContext, setIsSavingContext] = useState(false);
+  const [contextSaveMessage, setContextSaveMessage] = useState<string | null>(null);
+  const [isLoadingContext, setIsLoadingContext] = useState(false);
+
   // Check statuses on mount
   useEffect(() => {
     checkStatuses();
+    loadBusinessContext();
   }, []);
+
+  const loadBusinessContext = async () => {
+    setIsLoadingContext(true);
+    try {
+      const response = await fetch("/api/settings/business-context");
+      const data = await response.json();
+      if (response.ok) {
+        setBusinessNotes(data.notes || "");
+        setAttachments(data.attachments || []);
+      }
+    } catch (error) {
+      console.error("Failed to load business context:", error);
+    } finally {
+      setIsLoadingContext(false);
+    }
+  };
+
+  const saveBusinessContext = async () => {
+    setIsSavingContext(true);
+    setContextSaveMessage(null);
+    try {
+      const response = await fetch("/api/settings/business-context", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ notes: businessNotes, attachments }),
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setContextSaveMessage("Business context saved successfully!");
+        setTimeout(() => setContextSaveMessage(null), 3000);
+      } else {
+        setContextSaveMessage(data.error || "Failed to save");
+      }
+    } catch (error) {
+      console.error("Failed to save business context:", error);
+      setContextSaveMessage("Failed to save business context");
+    } finally {
+      setIsSavingContext(false);
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+
+    for (const file of Array.from(files)) {
+      // Only allow text-based files
+      const allowedTypes = [
+        "text/plain",
+        "text/markdown",
+        "text/csv",
+        "application/json",
+        "text/html",
+      ];
+
+      if (!allowedTypes.includes(file.type) && !file.name.endsWith(".md") && !file.name.endsWith(".txt")) {
+        alert(`File type not supported: ${file.name}. Please upload text files (.txt, .md, .csv, .json)`);
+        continue;
+      }
+
+      try {
+        const content = await file.text();
+        const newAttachment: Attachment = {
+          id: crypto.randomUUID(),
+          name: file.name,
+          content: content.slice(0, 50000), // Limit to ~50KB of text
+          type: file.type || "text/plain",
+        };
+        setAttachments((prev) => [...prev, newAttachment]);
+      } catch (error) {
+        console.error("Error reading file:", error);
+        alert(`Failed to read file: ${file.name}`);
+      }
+    }
+
+    // Reset the input
+    e.target.value = "";
+  };
+
+  const removeAttachment = (id: string) => {
+    setAttachments((prev) => prev.filter((a) => a.id !== id));
+  };
 
   // Check for OAuth callbacks
   useEffect(() => {
@@ -543,6 +646,173 @@ function SettingsContent() {
                     <span className="px-3 py-1 bg-gray-100 text-gray-500 rounded-full text-xs font-medium">
                       Coming Soon
                     </span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === "ai-assistant" && (
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900 mb-2">AI Assistant Settings</h2>
+                <p className="text-sm text-gray-500 mb-6">
+                  Configure your AI assistant with business information to help draft personalized email responses.
+                </p>
+
+                {contextSaveMessage && (
+                  <div className={cn(
+                    "mb-4 p-3 rounded-lg text-sm",
+                    contextSaveMessage.includes("success")
+                      ? "bg-green-50 text-green-700"
+                      : "bg-red-50 text-red-700"
+                  )}>
+                    {contextSaveMessage}
+                  </div>
+                )}
+
+                {/* Business Notes */}
+                <div className="border border-gray-200 rounded-xl p-6 mb-6">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                      <Sparkles className="w-5 h-5 text-purple-600" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-gray-900">Business Context</h3>
+                      <p className="text-sm text-gray-500">
+                        Add information about your business for AI to reference
+                      </p>
+                    </div>
+                  </div>
+
+                  {isLoadingContext ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+                    </div>
+                  ) : (
+                    <>
+                      <div className="mb-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Business Notes
+                        </label>
+                        <textarea
+                          value={businessNotes}
+                          onChange={(e) => setBusinessNotes(e.target.value)}
+                          rows={8}
+                          placeholder="Add information about your business that will help the AI draft better responses. For example:
+
+- Your company name and what you do
+- Your products or services and pricing
+- Common questions and answers
+- Your communication style preferences
+- Key team members and their roles
+- Any specific instructions for responses"
+                          className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
+                        />
+                        <p className="mt-1 text-xs text-gray-500">
+                          This information will be used by the AI when drafting email responses.
+                        </p>
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {/* File Attachments */}
+                <div className="border border-gray-200 rounded-xl p-6 mb-6">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                      <FileText className="w-5 h-5 text-blue-600" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-gray-900">Reference Documents</h3>
+                      <p className="text-sm text-gray-500">
+                        Upload text documents for AI to reference (pricing sheets, FAQs, etc.)
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mb-4">
+                    <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors">
+                      <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                        <Upload className="w-8 h-8 mb-2 text-gray-400" />
+                        <p className="mb-1 text-sm text-gray-500">
+                          <span className="font-semibold">Click to upload</span> or drag and drop
+                        </p>
+                        <p className="text-xs text-gray-400">
+                          TXT, MD, CSV, or JSON files (max 50KB each)
+                        </p>
+                      </div>
+                      <input
+                        type="file"
+                        className="hidden"
+                        accept=".txt,.md,.csv,.json,text/plain,text/markdown,text/csv,application/json"
+                        multiple
+                        onChange={handleFileUpload}
+                      />
+                    </label>
+                  </div>
+
+                  {attachments.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium text-gray-700">Uploaded Files ({attachments.length})</p>
+                      {attachments.map((attachment) => (
+                        <div
+                          key={attachment.id}
+                          className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                        >
+                          <div className="flex items-center gap-3">
+                            <FileText className="w-5 h-5 text-gray-400" />
+                            <div>
+                              <p className="text-sm font-medium text-gray-900">{attachment.name}</p>
+                              <p className="text-xs text-gray-500">
+                                {Math.round(attachment.content.length / 1024)}KB
+                              </p>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => removeAttachment(attachment.id)}
+                            className="p-1 hover:bg-gray-200 rounded transition-colors"
+                          >
+                            <X className="w-4 h-4 text-gray-500" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Save Button */}
+                <div className="flex items-center justify-between">
+                  <p className="text-sm text-gray-500">
+                    Changes are not saved automatically
+                  </p>
+                  <button
+                    onClick={saveBusinessContext}
+                    disabled={isSavingContext}
+                    className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg text-sm font-medium hover:bg-green-600 transition-colors disabled:opacity-50"
+                  >
+                    {isSavingContext ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-4 h-4" />
+                        Save Changes
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {/* API Key Info */}
+                <div className="mt-6 p-4 bg-purple-50 rounded-lg border border-purple-200">
+                  <div className="flex items-start gap-3">
+                    <Sparkles className="w-5 h-5 text-purple-600 mt-0.5" />
+                    <div>
+                      <h4 className="font-medium text-purple-900">Powered by Google Gemini</h4>
+                      <p className="text-sm text-purple-700 mt-1">
+                        The AI assistant uses Google&apos;s Gemini model to generate intelligent email responses based on your business context.
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>

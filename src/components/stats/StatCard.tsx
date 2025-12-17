@@ -1,13 +1,14 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { Users, Mail, TrendingUp, BarChart3, ArrowUp, ArrowDown } from "lucide-react";
+import { Users, Mail, TrendingUp, BarChart3, ArrowUp, ArrowDown, DollarSign } from "lucide-react";
 
 interface StatCardProps {
   title: string;
   value: string | number;
-  change: number;
-  type: "leads" | "emails" | "conversions" | "rate";
+  change?: number;
+  type: "leads" | "emails" | "conversions" | "rate" | "revenue";
+  prefix?: string;
 }
 
 const iconMap = {
@@ -15,6 +16,7 @@ const iconMap = {
   emails: Mail,
   conversions: TrendingUp,
   rate: BarChart3,
+  revenue: DollarSign,
 };
 
 const colorMap = {
@@ -22,41 +24,52 @@ const colorMap = {
   emails: "text-blue-500 bg-blue-50",
   conversions: "text-purple-500 bg-purple-50",
   rate: "text-orange-500 bg-orange-50",
+  revenue: "text-emerald-500 bg-emerald-50",
 };
 
-export function StatCard({ title, value, change, type }: StatCardProps) {
+export function StatCard({ title, value, change, type, prefix }: StatCardProps) {
   const Icon = iconMap[type];
-  const isPositive = change >= 0;
+  const isPositive = change !== undefined && change >= 0;
+
+  const formatValue = () => {
+    if (prefix) {
+      return `${prefix}${typeof value === "number" ? value.toLocaleString() : value}`;
+    }
+    if (type === "rate") {
+      return `${value}%`;
+    }
+    return typeof value === "number" ? value.toLocaleString() : value;
+  };
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-5">
       <div className="flex items-start justify-between">
         <div>
           <p className="text-sm text-gray-500 mb-1">{title}</p>
-          <p className="text-2xl font-bold text-gray-900">
-            {typeof value === "number" && type === "rate" ? `${value}%` : value}
-          </p>
+          <p className="text-2xl font-bold text-gray-900">{formatValue()}</p>
         </div>
         <div className={cn("p-2 rounded-lg", colorMap[type])}>
           <Icon className="w-5 h-5" />
         </div>
       </div>
-      <div className="mt-3 flex items-center gap-1">
-        {isPositive ? (
-          <ArrowUp className="w-4 h-4 text-green-500" />
-        ) : (
-          <ArrowDown className="w-4 h-4 text-red-500" />
-        )}
-        <span
-          className={cn(
-            "text-sm font-medium",
-            isPositive ? "text-green-500" : "text-red-500"
+      {change !== undefined && (
+        <div className="mt-3 flex items-center gap-1">
+          {isPositive ? (
+            <ArrowUp className="w-4 h-4 text-green-500" />
+          ) : (
+            <ArrowDown className="w-4 h-4 text-red-500" />
           )}
-        >
-          {Math.abs(change)}%
-        </span>
-        <span className="text-sm text-gray-500">vs previous period</span>
-      </div>
+          <span
+            className={cn(
+              "text-sm font-medium",
+              isPositive ? "text-green-500" : "text-red-500"
+            )}
+          >
+            {Math.abs(change)}%
+          </span>
+          <span className="text-sm text-gray-500">vs previous period</span>
+        </div>
+      )}
     </div>
   );
 }

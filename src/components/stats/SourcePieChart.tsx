@@ -4,12 +4,13 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recha
 
 interface SourcePieChartProps {
   data: { source: string; count: number; color: string }[];
+  title?: string;
 }
 
-export function SourcePieChart({ data }: SourcePieChartProps) {
+export function SourcePieChart({ data, title = "Leads by Source" }: SourcePieChartProps) {
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-5">
-      <h3 className="text-lg font-semibold text-gray-900 mb-4">Sessions by Source</h3>
+      <h3 className="text-lg font-semibold text-gray-900 mb-4">{title}</h3>
       <div className="h-[250px]">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>

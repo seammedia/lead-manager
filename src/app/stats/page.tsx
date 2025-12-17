@@ -1,41 +1,102 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { StatCard } from "@/components/stats/StatCard";
 import { LeadGrowthChart } from "@/components/stats/LeadGrowthChart";
 import { SourcePieChart } from "@/components/stats/SourcePieChart";
-import { mockStatsData } from "@/lib/mockData";
+import { RevenueSourceChart } from "@/components/stats/RevenueSourceChart";
+import { DateRangePicker } from "@/components/stats/DateRangePicker";
 import { TimePeriod } from "@/types";
-import { ChevronDown } from "lucide-react";
+
+interface StatsApiResponse {
+  totalLeads: number;
+  emailsSent: number;
+  conversions: number;
+  convRate: number;
+  previousPeriod: {
+    totalLeads: number;
+    emailsSent: number;
+    conversions: number;
+    convRate: number;
+  };
+  leadsTrend: { week: string; count: number }[];
+  leadsSourceBreakdown: { source: string; count: number; color: string }[];
+  conversionsSourceBreakdown: { source: string; count: number; color: string }[];
+  revenue: {
+    total: number;
+    currentPeriod: number;
+    previousPeriod: number;
+    avgDealSize: number;
+    bySource: { source: string; amount: number; color: string }[];
+  };
+}
 
 export default function StatsPage() {
   const [period, setPeriod] = useState<TimePeriod>("30");
-  const stats = mockStatsData;
+  const [customStart, setCustomStart] = useState<Date | undefined>();
+  const [customEnd, setCustomEnd] = useState<Date | undefined>();
+  const [stats, setStats] = useState<StatsApiResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchStats() {
+      setLoading(true);
+      try {
+        let url = `/api/stats?period=${period}`;
+        if (period === "custom" && customStart && customEnd) {
+          url += `&start=${customStart.toISOString()}&end=${customEnd.toISOString()}`;
+        }
+        const response = await fetch(url);
+        if (response.ok) {
+          const data = await response.json();
+          setStats(data);
+        }
+      } catch (error) {
+        console.error("Failed to fetch stats:", error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchStats();
+  }, [period, customStart, customEnd]);
+
+  const handlePeriodChange = (newPeriod: TimePeriod, startDate?: Date, endDate?: Date) => {
+    setPeriod(newPeriod);
+    if (newPeriod === "custom" && startDate && endDate) {
+      setCustomStart(startDate);
+      setCustomEnd(endDate);
+    }
+  };
 
   const calculateChange = (current: number, previous: number) => {
-    if (previous === 0) return 0;
+    if (previous === 0) return current > 0 ? 100 : 0;
     return Math.round(((current - previous) / previous) * 100);
   };
+
+  if (loading || !stats) {
+    return (
+      <AppLayout title="Stats" subtitle="Welcome back, Heath">
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-pulse text-gray-400">Loading stats...</div>
+        </div>
+      </AppLayout>
+    );
+  }
 
   return (
     <AppLayout title="Stats" subtitle="Welcome back, Heath">
       <div className="mb-6 flex items-center justify-between">
         <h2 className="text-xl font-semibold text-gray-900">Performance Overview</h2>
-        <div className="relative">
-          <select
-            value={period}
-            onChange={(e) => setPeriod(e.target.value as TimePeriod)}
-            className="appearance-none bg-white border border-gray-200 rounded-lg px-4 py-2 pr-10 text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent cursor-pointer"
-          >
-            <option value="7">Last 7 Days</option>
-            <option value="14">Last 14 Days</option>
-            <option value="30">Last 30 Days</option>
-          </select>
-          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none" />
-        </div>
+        <DateRangePicker
+          period={period}
+          onPeriodChange={handlePeriodChange}
+          customStart={customStart}
+          customEnd={customEnd}
+        />
       </div>
 
+      {/* Main Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <StatCard
           title="Total Leads"
@@ -56,20 +117,52 @@ export default function StatsPage() {
           type="conversions"
         />
         <StatCard
-          title="Avg. Rate"
-          value={stats.avgRate}
-          change={calculateChange(stats.avgRate, stats.previousPeriod.avgRate)}
+          title="Conv. Rate"
+          value={stats.convRate}
+          change={calculateChange(stats.convRate, stats.previousPeriod.convRate)}
           type="rate"
         />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* Lead Growth Trend and Source Charts */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
         <div className="lg:col-span-2">
           <LeadGrowthChart data={stats.leadsTrend} />
         </div>
-        <div>
-          <SourcePieChart data={stats.sourceBreakdown} />
+        <div className="space-y-6">
+          <SourcePieChart data={stats.leadsSourceBreakdown} title="Leads by Source" />
+          <SourcePieChart data={stats.conversionsSourceBreakdown} title="Conversions by Source" />
         </div>
+      </div>
+
+      {/* Revenue Section */}
+      <h2 className="text-xl font-semibold text-gray-900 mb-4">Revenue Overview</h2>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <StatCard
+          title="Total Revenue"
+          value={stats.revenue.total}
+          change={calculateChange(stats.revenue.currentPeriod, stats.revenue.previousPeriod)}
+          type="revenue"
+          prefix="$"
+        />
+        <StatCard
+          title="Period Revenue"
+          value={stats.revenue.currentPeriod}
+          change={calculateChange(stats.revenue.currentPeriod, stats.revenue.previousPeriod)}
+          type="revenue"
+          prefix="$"
+        />
+        <StatCard
+          title="Avg. Deal Size"
+          value={stats.revenue.avgDealSize}
+          type="revenue"
+          prefix="$"
+        />
+      </div>
+
+      {/* Revenue by Source Chart */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <RevenueSourceChart data={stats.revenue.bySource} title="Revenue by Source" />
       </div>
     </AppLayout>
   );

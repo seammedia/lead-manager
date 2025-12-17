@@ -11,6 +11,7 @@ export function getAuthUrl() {
     "https://www.googleapis.com/auth/gmail.readonly",
     "https://www.googleapis.com/auth/gmail.send",
     "https://www.googleapis.com/auth/gmail.compose",
+    "https://www.googleapis.com/auth/gmail.modify", // Required for archive, trash, labels
     "https://www.googleapis.com/auth/userinfo.email",
     "https://www.googleapis.com/auth/userinfo.profile",
   ];
@@ -68,14 +69,51 @@ export async function listEmails(
 ): Promise<Email[]> {
   const gmail = getGmailClient(accessToken, refreshToken);
 
-  const response = await gmail.users.messages.list({
-    userId: "me",
+  console.log("[Gmail] Listing messages with options:", {
     maxResults: options.maxResults || 20,
-    labelIds: options.labelIds || ["INBOX"],
-    q: options.query,
+    labelIds: options.labelIds,
+    query: options.query,
   });
 
+  let response;
+  try {
+    // Build request params - only include labelIds if provided (for search queries, we want all mail)
+    const listParams: {
+      userId: string;
+      maxResults: number;
+      labelIds?: string[];
+      q?: string;
+    } = {
+      userId: "me",
+      maxResults: options.maxResults || 20,
+    };
+
+    if (options.labelIds) {
+      listParams.labelIds = options.labelIds;
+    } else if (!options.query) {
+      // Default to INBOX only if no query and no labelIds specified
+      listParams.labelIds = ["INBOX"];
+    }
+
+    if (options.query) {
+      listParams.q = options.query;
+    }
+
+    response = await gmail.users.messages.list(listParams);
+  } catch (listError: unknown) {
+    const error = listError as { code?: number; message?: string; errors?: Array<{ message?: string; domain?: string; reason?: string }> };
+    console.error("[Gmail] Error listing messages:", error);
+    if (error.code === 401 || error.code === 403) {
+      throw new Error(`Gmail authorization error (${error.code}): ${error.message || "Access denied"}`);
+    }
+    throw listError;
+  }
+
+  console.log("[Gmail] Response resultSizeEstimate:", response.data.resultSizeEstimate);
+
   const messages = response.data.messages || [];
+  console.log("[Gmail] Found", messages.length, "messages");
+
   const emails: Email[] = [];
 
   for (const message of messages) {
@@ -134,6 +172,23 @@ export async function listEmails(
   return emails;
 }
 
+// Convert plain text to HTML (preserve line breaks and paragraphs)
+function textToHtml(text: string): string {
+  // Escape HTML special characters
+  let html = text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+
+  // Convert double line breaks to paragraph breaks
+  html = html.split(/\n\n+/).map(para => `<p>${para}</p>`).join("");
+
+  // Convert single line breaks within paragraphs to <br>
+  html = html.replace(/\n/g, "<br>");
+
+  return html;
+}
+
 export async function sendEmail(
   accessToken: string,
   refreshToken: string | undefined,
@@ -143,12 +198,15 @@ export async function sendEmail(
 ): Promise<string> {
   const gmail = getGmailClient(accessToken, refreshToken);
 
+  // Convert plain text body to HTML
+  const htmlBody = textToHtml(body);
+
   const message = [
     `To: ${to}`,
     `Subject: ${subject}`,
     "Content-Type: text/html; charset=utf-8",
     "",
-    body,
+    htmlBody,
   ].join("\n");
 
   const encodedMessage = Buffer.from(message)
@@ -178,6 +236,9 @@ export async function replyToEmail(
 ): Promise<string> {
   const gmail = getGmailClient(accessToken, refreshToken);
 
+  // Convert plain text body to HTML
+  const htmlBody = textToHtml(body);
+
   const message = [
     `To: ${to}`,
     `Subject: Re: ${subject}`,
@@ -185,7 +246,7 @@ export async function replyToEmail(
     `References: ${messageId}`,
     "Content-Type: text/html; charset=utf-8",
     "",
-    body,
+    htmlBody,
   ].join("\n");
 
   const encodedMessage = Buffer.from(message)
@@ -285,4 +346,66 @@ export async function getUserProfile(accessToken: string, refreshToken?: string)
   const oauth2 = google.oauth2({ version: "v2", auth: setCredentials({ access_token: accessToken, refresh_token: refreshToken }) });
   const response = await oauth2.userinfo.get();
   return response.data;
+}
+
+export async function archiveEmail(
+  accessToken: string,
+  refreshToken: string | undefined,
+  emailId: string
+): Promise<void> {
+  const gmail = getGmailClient(accessToken, refreshToken);
+
+  await gmail.users.messages.modify({
+    userId: "me",
+    id: emailId,
+    requestBody: {
+      removeLabelIds: ["INBOX"],
+    },
+  });
+}
+
+export async function trashEmail(
+  accessToken: string,
+  refreshToken: string | undefined,
+  emailId: string
+): Promise<void> {
+  const gmail = getGmailClient(accessToken, refreshToken);
+
+  await gmail.users.messages.trash({
+    userId: "me",
+    id: emailId,
+  });
+}
+
+export async function starEmail(
+  accessToken: string,
+  refreshToken: string | undefined,
+  emailId: string,
+  starred: boolean
+): Promise<void> {
+  const gmail = getGmailClient(accessToken, refreshToken);
+
+  await gmail.users.messages.modify({
+    userId: "me",
+    id: emailId,
+    requestBody: starred
+      ? { addLabelIds: ["STARRED"] }
+      : { removeLabelIds: ["STARRED"] },
+  });
+}
+
+export async function markAsUnread(
+  accessToken: string,
+  refreshToken: string | undefined,
+  emailId: string
+): Promise<void> {
+  const gmail = getGmailClient(accessToken, refreshToken);
+
+  await gmail.users.messages.modify({
+    userId: "me",
+    id: emailId,
+    requestBody: {
+      addLabelIds: ["UNREAD"],
+    },
+  });
 }

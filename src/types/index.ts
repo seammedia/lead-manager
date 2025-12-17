@@ -1,4 +1,4 @@
-export type LeadStage = "new" | "interested" | "contacted" | "negotiation" | "demo" | "converted" | "lost";
+export type LeadStage = "new" | "contacted_1" | "contacted_2" | "called" | "not_interested" | "interested" | "onboarding_sent" | "converted";
 
 export type LeadSource = "website" | "linkedin" | "referral" | "email" | "instagram" | "meta_ads" | "google_ads" | "other";
 
@@ -14,6 +14,7 @@ export interface Lead {
   conversion_probability: number;
   revenue: number | null;
   notes: string | null;
+  next_action: string | null;
   last_contacted: string | null;
   created_at: string;
   updated_at: string;
@@ -59,4 +60,4 @@ export interface StatsData {
   };
 }
 
-export type TimePeriod = "7" | "14" | "30";
+export type TimePeriod = "7" | "14" | "30" | "this_month" | "last_month" | "custom";

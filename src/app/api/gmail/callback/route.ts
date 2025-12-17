@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTokensFromCode, getUserProfile } from "@/lib/gmail";
 import { setGmailTokens } from "@/lib/auth-cookies";
+import { getServiceSupabase } from "@/lib/supabase";
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -40,6 +41,20 @@ export async function GET(request: NextRequest) {
       },
       profile.email || ""
     );
+
+    // Also store tokens in database for cron jobs to access
+    const supabase = getServiceSupabase();
+    await supabase
+      .from("settings")
+      .upsert({
+        key: "gmail_tokens",
+        value: {
+          access_token: tokens.access_token,
+          refresh_token: tokens.refresh_token,
+          expiry_date: tokens.expiry_date || null,
+          email: profile.email || "",
+        },
+      }, { onConflict: "key" });
 
     const params = new URLSearchParams({
       success: "true",

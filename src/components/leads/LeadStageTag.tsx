@@ -12,38 +12,50 @@ interface LeadStageTagProps {
   onStageChange?: (newStage: LeadStage) => void;
 }
 
-const stageConfig: Record<LeadStage, { label: string; className: string }> = {
+const stageConfig: Record<LeadStage, { label: string; className: string; dotColor: string }> = {
   new: {
     label: "New",
     className: "bg-blue-100 text-blue-700 hover:bg-blue-200",
+    dotColor: "#3b82f6",
+  },
+  contacted_1: {
+    label: "Contacted 1",
+    className: "bg-yellow-100 text-yellow-700 hover:bg-yellow-200",
+    dotColor: "#eab308",
+  },
+  contacted_2: {
+    label: "Contacted 2",
+    className: "bg-pink-100 text-pink-700 hover:bg-pink-200",
+    dotColor: "#ec4899",
+  },
+  called: {
+    label: "Called",
+    className: "bg-purple-100 text-purple-700 hover:bg-purple-200",
+    dotColor: "#a855f7",
+  },
+  not_interested: {
+    label: "Not Interested",
+    className: "bg-red-100 text-red-700 hover:bg-red-200",
+    dotColor: "#ef4444",
   },
   interested: {
     label: "Interested",
-    className: "bg-green-100 text-green-700 hover:bg-green-200",
-  },
-  contacted: {
-    label: "Contacted",
-    className: "bg-yellow-100 text-yellow-700 hover:bg-yellow-200",
-  },
-  negotiation: {
-    label: "Negotiation",
     className: "bg-orange-100 text-orange-700 hover:bg-orange-200",
+    dotColor: "#f97316",
   },
-  demo: {
-    label: "Demo",
-    className: "bg-purple-100 text-purple-700 hover:bg-purple-200",
+  onboarding_sent: {
+    label: "Onboarding Sent",
+    className: "bg-teal-100 text-teal-700 hover:bg-teal-200",
+    dotColor: "#14b8a6",
   },
   converted: {
     label: "Converted",
     className: "bg-emerald-100 text-emerald-700 hover:bg-emerald-200",
-  },
-  lost: {
-    label: "Lost",
-    className: "bg-red-100 text-red-700 hover:bg-red-200",
+    dotColor: "#10b981",
   },
 };
 
-const stageOrder: LeadStage[] = ["new", "interested", "contacted", "negotiation", "demo", "converted", "lost"];
+const stageOrder: LeadStage[] = ["new", "contacted_1", "contacted_2", "called", "not_interested", "interested", "onboarding_sent", "converted"];
 
 export function LeadStageTag({ stage, editable = false, onStageChange }: LeadStageTagProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -133,14 +145,7 @@ export function LeadStageTag({ stage, editable = false, onStageChange }: LeadSta
             <div className="flex items-center gap-2">
               <span
                 className="w-2 h-2 rounded-full"
-                style={{
-                  backgroundColor: s === "new" ? "#3b82f6" :
-                    s === "interested" ? "#22c55e" :
-                    s === "contacted" ? "#eab308" :
-                    s === "negotiation" ? "#f97316" :
-                    s === "demo" ? "#a855f7" :
-                    s === "converted" ? "#10b981" : "#ef4444"
-                }}
+                style={{ backgroundColor: sConfig.dotColor }}
               />
               <span className="text-gray-700">{sConfig.label}</span>
             </div>
