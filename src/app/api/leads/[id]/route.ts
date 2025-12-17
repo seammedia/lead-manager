@@ -33,6 +33,9 @@ export async function GET(
   }
 }
 
+// Stages that should auto-archive leads (hidden from main view)
+const ARCHIVED_STAGES = ["not_interested", "no_response", "not_qualified"];
+
 // PATCH /api/leads/[id] - Update a lead
 export async function PATCH(
   request: NextRequest,
@@ -44,6 +47,15 @@ export async function PATCH(
 
     // Remove fields that shouldn't be updated directly
     const { id: _, created_at, updated_at, ...updates } = body;
+
+    // Auto-archive when stage is set to not_interested, no_response, or not_qualified
+    if (updates.stage && ARCHIVED_STAGES.includes(updates.stage)) {
+      updates.archived = true;
+    }
+    // Auto-unarchive when stage changes away from archived stages (unless explicitly setting archived)
+    else if (updates.stage && body.archived === undefined) {
+      updates.archived = false;
+    }
 
     const supabase = getServiceSupabase();
     const { data: lead, error } = await supabase

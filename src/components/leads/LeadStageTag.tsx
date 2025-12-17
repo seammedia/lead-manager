@@ -43,6 +43,11 @@ const stageConfig: Record<LeadStage, { label: string; className: string; dotColo
     className: "bg-slate-100 text-slate-700 hover:bg-slate-200",
     dotColor: "#475569",
   },
+  on_hold: {
+    label: "On Hold",
+    className: "bg-amber-100 text-amber-700 hover:bg-amber-200",
+    dotColor: "#f59e0b",
+  },
   interested: {
     label: "Interested",
     className: "bg-orange-100 text-orange-700 hover:bg-orange-200",
@@ -60,7 +65,7 @@ const stageConfig: Record<LeadStage, { label: string; className: string; dotColo
   },
 };
 
-const stageOrder: LeadStage[] = ["contacted_1", "contacted_2", "called", "not_interested", "no_response", "not_qualified", "interested", "onboarding_sent", "converted"];
+const stageOrder: LeadStage[] = ["contacted_1", "contacted_2", "called", "not_interested", "no_response", "not_qualified", "on_hold", "interested", "onboarding_sent", "converted"];
 
 export function LeadStageTag({ stage, editable = false, onStageChange }: LeadStageTagProps) {
   const [isOpen, setIsOpen] = useState(false);

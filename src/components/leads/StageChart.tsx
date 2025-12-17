@@ -14,12 +14,13 @@ const stageConfig: Record<LeadStage, { label: string; color: string }> = {
   not_interested: { label: "Not Interested", color: "#ef4444" },
   no_response: { label: "No Response", color: "#6b7280" },
   not_qualified: { label: "Not Qualified", color: "#475569" },
+  on_hold: { label: "On Hold", color: "#f59e0b" },
   interested: { label: "Interested", color: "#f97316" },
   onboarding_sent: { label: "Onboarding Sent", color: "#14b8a6" },
   converted: { label: "Converted", color: "#10b981" },
 };
 
-const stageOrder: LeadStage[] = ["contacted_1", "contacted_2", "called", "not_interested", "no_response", "not_qualified", "interested", "onboarding_sent", "converted"];
+const stageOrder: LeadStage[] = ["contacted_1", "contacted_2", "called", "not_interested", "no_response", "not_qualified", "on_hold", "interested", "onboarding_sent", "converted"];
 
 export function StageChart({ leads }: StageChartProps) {
   // Count leads by stage
@@ -30,6 +31,7 @@ export function StageChart({ leads }: StageChartProps) {
     not_interested: 0,
     no_response: 0,
     not_qualified: 0,
+    on_hold: 0,
     interested: 0,
     onboarding_sent: 0,
     converted: 0,

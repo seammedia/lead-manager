@@ -8,7 +8,7 @@ import { KanbanBoard } from "@/components/leads/KanbanBoard";
 import { LeadModal } from "@/components/leads/LeadModal";
 import { getTopOpportunities } from "@/lib/mockData";
 import { Lead, LeadStage } from "@/types";
-import { LayoutGrid, List, Plus, Archive, RefreshCw, BarChart2 } from "lucide-react";
+import { LayoutGrid, List, Plus, Archive, RefreshCw, BarChart2, PauseCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { StageChart } from "@/components/leads/StageChart";
 
@@ -24,6 +24,7 @@ export default function LeadsPage() {
   const [composeToLead, setComposeToLead] = useState<Lead | null>(null);
   const [composeType, setComposeType] = useState<"followup" | "onboarding" | "general">("followup");
   const [showArchived, setShowArchived] = useState(false);
+  const [showOnHold, setShowOnHold] = useState(false);
   const [emailSubject, setEmailSubject] = useState("");
   const [emailBody, setEmailBody] = useState("");
   const [isSendingEmail, setIsSendingEmail] = useState(false);
@@ -74,11 +75,20 @@ export default function LeadsPage() {
 
   const topOpportunities = getTopOpportunities(allLeads.filter(l => !l.archived));
 
-  // Filter out "not_interested" leads from table/board view (but keep for chart)
-  // Unless showArchived is on, then show everything
-  const tableLeads = showArchived
-    ? leads
-    : leads.filter(l => l.stage !== "not_interested");
+  // Stages that are hidden by default (archived stages)
+  const archivedStages = ["not_interested", "no_response", "not_qualified"];
+
+  // Filter leads for table/board view
+  // - Hide archived stages unless showArchived is on
+  // - Hide on_hold unless showOnHold is on
+  // Chart view gets all leads for complete stats
+  const tableLeads = leads.filter(l => {
+    // Show archived stages only when showArchived is on
+    if (archivedStages.includes(l.stage) && !showArchived) return false;
+    // Show on_hold only when showOnHold is on
+    if (l.stage === "on_hold" && !showOnHold) return false;
+    return true;
+  });
 
   const handleAddLead = () => {
     setSelectedLead(null);
@@ -384,13 +394,27 @@ export default function LeadsPage() {
             </button>
           </div>
 
+          {/* On Hold Filter Toggle */}
+          <button
+            onClick={() => setShowOnHold(!showOnHold)}
+            className={cn(
+              "flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border",
+              showOnHold
+                ? "bg-amber-50 text-amber-700 border-amber-200"
+                : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
+            )}
+          >
+            <PauseCircle className="w-4 h-4" />
+            {showOnHold ? "Showing On Hold" : "Show On Hold"}
+          </button>
+
           {/* Archive Filter Toggle */}
           <button
             onClick={() => setShowArchived(!showArchived)}
             className={cn(
               "flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border",
               showArchived
-                ? "bg-amber-50 text-amber-700 border-amber-200"
+                ? "bg-red-50 text-red-700 border-red-200"
                 : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
             )}
           >

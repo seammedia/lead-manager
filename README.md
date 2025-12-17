@@ -35,25 +35,36 @@ A comprehensive CRM and lead management platform for Seam Media, featuring Gmail
 
 ## Lead Stages
 
-The application uses 9 lead stages in this order:
+The application uses 10 lead stages in this order:
 
 | Stage | Description | Color | Behavior |
 |-------|-------------|-------|----------|
 | `contacted_1` | First contact made | Yellow | Default for new leads (auto-email sent) |
 | `contacted_2` | Follow-up contact made | Pink | Auto-set when sending follow-up email |
 | `called` | Phone call made | Purple | Manual |
-| `not_interested` | Lead declined | Red | **Hidden from table, shown in chart** |
-| `no_response` | No response after follow-ups | Gray | For leads who never replied |
-| `not_qualified` | Lead doesn't meet criteria | Slate | For unqualified leads |
+| `not_interested` | Lead declined | Red | **Auto-archived, hidden from table/board** |
+| `no_response` | No response after follow-ups | Gray | **Auto-archived, hidden from table/board** |
+| `not_qualified` | Lead doesn't meet criteria | Slate | **Auto-archived, hidden from table/board** |
+| `on_hold` | Temporarily paused | Amber | **Hidden by default, use "Show On Hold" toggle** |
 | `interested` | Lead has shown interest | Orange | Auto-set if lead responds |
 | `onboarding_sent` | Onboarding email sent | Teal | Auto-set when sending onboarding email |
 | `converted` | Successfully closed deal | Emerald | Track revenue here |
 
 ### Stage Behavior Notes
 
-- **Not Interested**: These leads are automatically hidden from the Table and Board views but still appear in the Chart view and count in statistics. Click "Show Archived" to see them in table/board.
-- **No Response**: For leads who received emails but never replied - keeps them separate from "Not Interested" (who actively declined)
-- **Not Qualified**: For leads who don't meet your criteria (wrong industry, budget too small, etc.)
+- **Archived Stages** (Not Interested, No Response, Not Qualified):
+  - Automatically archived when stage is set
+  - Hidden from Table and Board views by default
+  - Still appear in Chart view and count in total lead statistics
+  - Click "Show Archived" to see them in table/board
+  - Auto-unarchived if stage changes to a non-archived stage
+
+- **On Hold**: For leads you want to pause but may revisit later
+  - Hidden from Table/Board by default
+  - Use "Show On Hold" toggle to view them
+  - Still counts in lead statistics
+  - Not auto-archived (separate from archived leads)
+
 - **Contacted 1**: Default stage for all new leads (since auto-email is sent)
 - **Contacted 2**: Auto-set when you send a "Follow Up" email
 - **Onboarding Sent**: Auto-set when you send an "Onboarding" email
@@ -90,7 +101,7 @@ CREATE TABLE IF NOT EXISTS leads (
 
 -- Stage constraint for valid stages
 ALTER TABLE leads ADD CONSTRAINT leads_stage_check
-  CHECK (stage IN ('contacted_1', 'contacted_2', 'called', 'not_interested', 'no_response', 'not_qualified', 'interested', 'onboarding_sent', 'converted'));
+  CHECK (stage IN ('contacted_1', 'contacted_2', 'called', 'not_interested', 'no_response', 'not_qualified', 'on_hold', 'interested', 'onboarding_sent', 'converted'));
 
 -- Create indexes for faster queries
 CREATE INDEX IF NOT EXISTS idx_leads_archived ON leads(archived);
@@ -472,7 +483,7 @@ Heath
 ```sql
 ALTER TABLE leads DROP CONSTRAINT IF EXISTS leads_stage_check;
 ALTER TABLE leads ADD CONSTRAINT leads_stage_check
-  CHECK (stage IN ('contacted_1', 'contacted_2', 'called', 'not_interested', 'no_response', 'not_qualified', 'interested', 'onboarding_sent', 'converted'));
+  CHECK (stage IN ('contacted_1', 'contacted_2', 'called', 'not_interested', 'no_response', 'not_qualified', 'on_hold', 'interested', 'onboarding_sent', 'converted'));
 ```
 
 **Settings table missing:**

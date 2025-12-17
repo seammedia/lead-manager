@@ -8,9 +8,10 @@ import { getInitials, getAvatarColor, formatRelativeTime } from "@/lib/utils";
 
 // Stage priority: higher number = higher priority (shown first)
 const stagePriority: Record<LeadStage, number> = {
-  converted: 9,
-  onboarding_sent: 8,
-  interested: 7,
+  converted: 10,
+  onboarding_sent: 9,
+  interested: 8,
+  on_hold: 7,
   not_qualified: 6,
   no_response: 5,
   not_interested: 4,

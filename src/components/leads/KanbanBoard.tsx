@@ -35,6 +35,7 @@ const stages: { id: LeadStage; label: string; color: string }[] = [
   { id: "not_interested", label: "Not Interested", color: "bg-red-500" },
   { id: "no_response", label: "No Response", color: "bg-gray-500" },
   { id: "not_qualified", label: "Not Qualified", color: "bg-slate-500" },
+  { id: "on_hold", label: "On Hold", color: "bg-amber-500" },
   { id: "interested", label: "Interested", color: "bg-orange-500" },
   { id: "onboarding_sent", label: "Onboarding Sent", color: "bg-teal-500" },
   { id: "converted", label: "Converted", color: "bg-emerald-500" },

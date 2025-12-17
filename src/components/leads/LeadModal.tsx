@@ -31,6 +31,7 @@ const stages: { value: LeadStage; label: string }[] = [
   { value: "not_interested", label: "Not Interested" },
   { value: "no_response", label: "No Response" },
   { value: "not_qualified", label: "Not Qualified" },
+  { value: "on_hold", label: "On Hold" },
   { value: "interested", label: "Interested" },
   { value: "onboarding_sent", label: "Onboarding Sent" },
   { value: "converted", label: "Converted" },
