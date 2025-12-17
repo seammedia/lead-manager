@@ -205,7 +205,6 @@ export function Header({ title, subtitle }: HeaderProps) {
           }}
           onSave={handleUpdateLead}
           onUpdateLastContacted={handleUpdateLastContacted}
-          mode="edit"
         />
       )}
     </>
