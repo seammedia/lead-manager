@@ -451,7 +451,7 @@ export default function LeadsPage() {
             />
           )}
           {viewMode === "chart" && (
-            <StageChart leads={leads} />
+            <StageChart leads={allLeads} />
           )}
         </>
       )}
