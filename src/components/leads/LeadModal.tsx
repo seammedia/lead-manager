@@ -130,6 +130,11 @@ export function LeadModal({ isOpen, onClose, onSave, onEmail, onUpdateLastContac
             }
           }
         }
+
+        // If lead is in "contacted_1" and has responded, check and auto-advance to "interested"
+        if (currentLead.stage === "contacted_1") {
+          checkAndAdvanceIfResponded(currentLead.id);
+        }
       } else if (response.status === 401) {
         setEmailError("Connect Gmail to see email history");
       } else {
@@ -140,6 +145,21 @@ export function LeadModal({ isOpen, onClose, onSave, onEmail, onUpdateLastContac
       setEmailError("Unable to load emails");
     } finally {
       setLoadingEmails(false);
+    }
+  };
+
+  // Check if lead has responded and auto-advance to "interested"
+  const checkAndAdvanceIfResponded = async (leadId: string) => {
+    try {
+      const response = await fetch(`/api/leads/check-responses?leadId=${leadId}`);
+      const data = await response.json();
+      if (data.advanced > 0) {
+        // Update the form stage to reflect the change
+        setFormData(prev => ({ ...prev, stage: "interested" }));
+        console.log(`Lead auto-advanced to Interested`);
+      }
+    } catch (error) {
+      console.error("Error checking lead response:", error);
     }
   };
 

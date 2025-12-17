@@ -330,6 +330,7 @@ Public routes (no auth required):
 | `/api/leads/[id]` | DELETE | Delete a lead |
 | `/api/leads/webhook` | POST | Zapier webhook endpoint |
 | `/api/leads/search` | GET | Search leads (query: `?q=searchterm`) |
+| `/api/leads/check-responses` | GET | Check for lead responses, auto-advance to interested (query: `?leadId=optional`) |
 
 ### Gmail
 
@@ -391,6 +392,18 @@ The `/api/cron/follow-up` endpoint:
 2. Checks Gmail for responses (emails FROM the lead)
 3. If no response: Sends follow-up email, moves to "contacted_2"
 4. If responded: Moves to "interested"
+
+### Real-Time Response Detection
+
+In addition to the cron job, the app detects lead responses in real-time:
+- **When inbox loads/refreshes**: Checks all "contacted_1" leads for responses
+- **When viewing a lead modal**: Checks that specific lead if in "contacted_1" stage
+- Leads who respond are immediately moved to "interested" to prevent automatic follow-ups
+
+This is handled by the `/api/leads/check-responses` endpoint which:
+1. Queries leads in "contacted_1" stage
+2. Checks Gmail for emails FROM each lead after their `last_contacted` date
+3. Auto-advances responding leads to "interested" stage
 
 **Follow-up email template**:
 ```

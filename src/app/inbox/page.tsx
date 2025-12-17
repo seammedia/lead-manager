@@ -119,6 +119,8 @@ function InboxContent() {
 
       if (data.connected) {
         await fetchEmails();
+        // Check for lead responses and auto-advance to "interested"
+        checkForLeadResponses();
       }
     } catch (error) {
       console.error("Failed to check Gmail status:", error);
@@ -127,7 +129,20 @@ function InboxContent() {
     }
   };
 
-  const fetchEmails = async (folder: Folder = selectedFolder) => {
+  // Check if any leads in "contacted_1" have responded and move them to "interested"
+  const checkForLeadResponses = async () => {
+    try {
+      const response = await fetch("/api/leads/check-responses");
+      const data = await response.json();
+      if (data.advanced > 0) {
+        console.log(`Auto-advanced ${data.advanced} leads to Interested:`, data.advancedLeads);
+      }
+    } catch (error) {
+      console.error("Failed to check for lead responses:", error);
+    }
+  };
+
+  const fetchEmails = async (folder: Folder = selectedFolder, triggerResponseCheck = false) => {
     setIsRefreshing(true);
     setError(null);
     try {
@@ -142,6 +157,10 @@ function InboxContent() {
       if (response.ok) {
         setEmails(data.emails || []);
         setError(null);
+        // Check for lead responses when refreshing inbox
+        if (triggerResponseCheck && folder === "inbox") {
+          checkForLeadResponses();
+        }
       } else if (response.status === 401) {
         setGmailConnected(false);
         setConnectedEmail(null);
@@ -575,7 +594,7 @@ function InboxContent() {
                   </div>
                 </div>
                 <button
-                  onClick={() => fetchEmails()}
+                  onClick={() => fetchEmails(selectedFolder, true)}
                   disabled={!gmailConnected || isRefreshing}
                   className="p-2 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
                 >
