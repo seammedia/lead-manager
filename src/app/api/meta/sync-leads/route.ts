@@ -72,7 +72,7 @@ export async function POST() {
               email: parsedLead.email,
               phone: parsedLead.phone,
               company: parsedLead.company || "Unknown",
-              stage: "new",
+              stage: "contacted_1",
               source: "meta_ads",
               owner: "Heath Maes",
               conversion_probability: 30,

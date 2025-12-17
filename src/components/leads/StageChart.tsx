@@ -8,26 +8,28 @@ interface StageChartProps {
 }
 
 const stageConfig: Record<LeadStage, { label: string; color: string }> = {
-  new: { label: "New", color: "#3b82f6" },
   contacted_1: { label: "Contacted 1", color: "#eab308" },
   contacted_2: { label: "Contacted 2", color: "#ec4899" },
   called: { label: "Called", color: "#a855f7" },
   not_interested: { label: "Not Interested", color: "#ef4444" },
+  no_response: { label: "No Response", color: "#6b7280" },
+  not_qualified: { label: "Not Qualified", color: "#475569" },
   interested: { label: "Interested", color: "#f97316" },
   onboarding_sent: { label: "Onboarding Sent", color: "#14b8a6" },
   converted: { label: "Converted", color: "#10b981" },
 };
 
-const stageOrder: LeadStage[] = ["new", "contacted_1", "contacted_2", "called", "not_interested", "interested", "onboarding_sent", "converted"];
+const stageOrder: LeadStage[] = ["contacted_1", "contacted_2", "called", "not_interested", "no_response", "not_qualified", "interested", "onboarding_sent", "converted"];
 
 export function StageChart({ leads }: StageChartProps) {
   // Count leads by stage
   const stageCounts: Record<LeadStage, number> = {
-    new: 0,
     contacted_1: 0,
     contacted_2: 0,
     called: 0,
     not_interested: 0,
+    no_response: 0,
+    not_qualified: 0,
     interested: 0,
     onboarding_sent: 0,
     converted: 0,
@@ -91,7 +93,7 @@ export function StageChart({ leads }: StageChartProps) {
           </div>
           <div className="text-center">
             <p className="text-2xl font-bold text-blue-600">
-              {stageCounts.new + stageCounts.contacted_1 + stageCounts.contacted_2 + stageCounts.called + stageCounts.interested + stageCounts.onboarding_sent}
+              {stageCounts.contacted_1 + stageCounts.contacted_2 + stageCounts.called + stageCounts.interested + stageCounts.onboarding_sent}
             </p>
             <p className="text-sm text-gray-500">In Pipeline</p>
           </div>

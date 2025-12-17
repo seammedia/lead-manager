@@ -35,15 +35,16 @@ A comprehensive CRM and lead management platform for Seam Media, featuring Gmail
 
 ## Lead Stages
 
-The application uses 8 lead stages in this order:
+The application uses 9 lead stages in this order:
 
 | Stage | Description | Color | Behavior |
 |-------|-------------|-------|----------|
-| `new` | Fresh lead, not yet contacted | Blue | Default for manual adds |
-| `contacted_1` | First contact made | Yellow | Default for Zapier leads (auto-email sent) |
+| `contacted_1` | First contact made | Yellow | Default for new leads (auto-email sent) |
 | `contacted_2` | Follow-up contact made | Pink | Auto-set when sending follow-up email |
 | `called` | Phone call made | Purple | Manual |
 | `not_interested` | Lead declined | Red | **Hidden from table, shown in chart** |
+| `no_response` | No response after follow-ups | Gray | For leads who never replied |
+| `not_qualified` | Lead doesn't meet criteria | Slate | For unqualified leads |
 | `interested` | Lead has shown interest | Orange | Auto-set if lead responds |
 | `onboarding_sent` | Onboarding email sent | Teal | Auto-set when sending onboarding email |
 | `converted` | Successfully closed deal | Emerald | Track revenue here |
@@ -51,10 +52,12 @@ The application uses 8 lead stages in this order:
 ### Stage Behavior Notes
 
 - **Not Interested**: These leads are automatically hidden from the Table and Board views but still appear in the Chart view and count in statistics. Click "Show Archived" to see them in table/board.
-- **Contacted 1**: Zapier-imported leads start here (since auto-email is sent)
+- **No Response**: For leads who received emails but never replied - keeps them separate from "Not Interested" (who actively declined)
+- **Not Qualified**: For leads who don't meet your criteria (wrong industry, budget too small, etc.)
+- **Contacted 1**: Default stage for all new leads (since auto-email is sent)
 - **Contacted 2**: Auto-set when you send a "Follow Up" email
 - **Onboarding Sent**: Auto-set when you send an "Onboarding" email
-- **Interested**: Auto-set by the follow-up cron if the lead has responded
+- **Interested**: Auto-set when a lead responds to your emails
 
 ## Setup Instructions
 
@@ -87,7 +90,7 @@ CREATE TABLE IF NOT EXISTS leads (
 
 -- Stage constraint for valid stages
 ALTER TABLE leads ADD CONSTRAINT leads_stage_check
-  CHECK (stage IN ('new', 'contacted_1', 'contacted_2', 'called', 'not_interested', 'interested', 'onboarding_sent', 'converted'));
+  CHECK (stage IN ('contacted_1', 'contacted_2', 'called', 'not_interested', 'no_response', 'not_qualified', 'interested', 'onboarding_sent', 'converted'));
 
 -- Create indexes for faster queries
 CREATE INDEX IF NOT EXISTS idx_leads_archived ON leads(archived);
@@ -469,7 +472,7 @@ Heath
 ```sql
 ALTER TABLE leads DROP CONSTRAINT IF EXISTS leads_stage_check;
 ALTER TABLE leads ADD CONSTRAINT leads_stage_check
-  CHECK (stage IN ('new', 'contacted_1', 'contacted_2', 'called', 'not_interested', 'interested', 'onboarding_sent', 'converted'));
+  CHECK (stage IN ('contacted_1', 'contacted_2', 'called', 'not_interested', 'no_response', 'not_qualified', 'interested', 'onboarding_sent', 'converted'));
 ```
 
 **Settings table missing:**

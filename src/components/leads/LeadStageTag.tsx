@@ -13,11 +13,6 @@ interface LeadStageTagProps {
 }
 
 const stageConfig: Record<LeadStage, { label: string; className: string; dotColor: string }> = {
-  new: {
-    label: "New",
-    className: "bg-blue-100 text-blue-700 hover:bg-blue-200",
-    dotColor: "#3b82f6",
-  },
   contacted_1: {
     label: "Contacted 1",
     className: "bg-yellow-100 text-yellow-700 hover:bg-yellow-200",
@@ -38,6 +33,16 @@ const stageConfig: Record<LeadStage, { label: string; className: string; dotColo
     className: "bg-red-100 text-red-700 hover:bg-red-200",
     dotColor: "#ef4444",
   },
+  no_response: {
+    label: "No Response",
+    className: "bg-gray-100 text-gray-700 hover:bg-gray-200",
+    dotColor: "#6b7280",
+  },
+  not_qualified: {
+    label: "Not Qualified",
+    className: "bg-slate-100 text-slate-700 hover:bg-slate-200",
+    dotColor: "#475569",
+  },
   interested: {
     label: "Interested",
     className: "bg-orange-100 text-orange-700 hover:bg-orange-200",
@@ -55,7 +60,7 @@ const stageConfig: Record<LeadStage, { label: string; className: string; dotColo
   },
 };
 
-const stageOrder: LeadStage[] = ["new", "contacted_1", "contacted_2", "called", "not_interested", "interested", "onboarding_sent", "converted"];
+const stageOrder: LeadStage[] = ["contacted_1", "contacted_2", "called", "not_interested", "no_response", "not_qualified", "interested", "onboarding_sent", "converted"];
 
 export function LeadStageTag({ stage, editable = false, onStageChange }: LeadStageTagProps) {
   const [isOpen, setIsOpen] = useState(false);

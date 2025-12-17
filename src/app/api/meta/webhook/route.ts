@@ -115,7 +115,7 @@ async function processNewLead(leadId: string, pageId: string) {
       email: parsedLead.email,
       phone: parsedLead.phone,
       company: parsedLead.company || "Unknown",
-      stage: "new",
+      stage: "contacted_1",
       source: "meta_ads",
       owner: "Heath Maes", // Default owner
       conversion_probability: 30, // Default for ad leads

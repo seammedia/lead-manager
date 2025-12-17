@@ -3,7 +3,7 @@ import { getServiceSupabase } from "@/lib/supabase";
 
 // Stage mapping from old to new
 const stageMapping: Record<string, string> = {
-  new: "new",
+  new: "contacted_1", // "new" stage removed, map to contacted_1
   contacted: "contacted_1",
   interested: "interested",
   negotiation: "contacted_2",

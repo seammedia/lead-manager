@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
       email: body.email.toLowerCase(),
       company: body.company || "",
       phone: body.phone || null,
-      stage: body.stage || "new",
+      stage: body.stage || "contacted_1",
       source: body.source || "website",
       owner: body.owner || "Heath Maes",
       conversion_probability: body.conversion_probability || 20,

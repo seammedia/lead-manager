@@ -1,4 +1,4 @@
-export type LeadStage = "new" | "contacted_1" | "contacted_2" | "called" | "not_interested" | "interested" | "onboarding_sent" | "converted";
+export type LeadStage = "contacted_1" | "contacted_2" | "called" | "not_interested" | "no_response" | "not_qualified" | "interested" | "onboarding_sent" | "converted";
 
 export type LeadSource = "website" | "linkedin" | "referral" | "email" | "instagram" | "meta_ads" | "google_ads" | "other";
 

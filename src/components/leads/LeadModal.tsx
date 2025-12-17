@@ -25,11 +25,12 @@ interface EmailMessage {
 }
 
 const stages: { value: LeadStage; label: string }[] = [
-  { value: "new", label: "New" },
   { value: "contacted_1", label: "Contacted 1" },
   { value: "contacted_2", label: "Contacted 2" },
   { value: "called", label: "Called" },
   { value: "not_interested", label: "Not Interested" },
+  { value: "no_response", label: "No Response" },
+  { value: "not_qualified", label: "Not Qualified" },
   { value: "interested", label: "Interested" },
   { value: "onboarding_sent", label: "Onboarding Sent" },
   { value: "converted", label: "Converted" },
@@ -52,7 +53,7 @@ export function LeadModal({ isOpen, onClose, onSave, onEmail, onUpdateLastContac
     company: "",
     email: "",
     phone: "",
-    stage: "new" as LeadStage,
+    stage: "contacted_1" as LeadStage,
     source: "website" as LeadSource,
     owner: "Heath Maes",
     conversion_probability: 20,
@@ -89,7 +90,7 @@ export function LeadModal({ isOpen, onClose, onSave, onEmail, onUpdateLastContac
         company: "",
         email: "",
         phone: "",
-        stage: "new",
+        stage: "contacted_1",
         source: "website",
         owner: "Heath Maes",
         conversion_probability: 20,

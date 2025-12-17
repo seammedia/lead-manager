@@ -29,11 +29,12 @@ interface KanbanBoardProps {
 }
 
 const stages: { id: LeadStage; label: string; color: string }[] = [
-  { id: "new", label: "New", color: "bg-blue-500" },
   { id: "contacted_1", label: "Contacted 1", color: "bg-yellow-500" },
   { id: "contacted_2", label: "Contacted 2", color: "bg-pink-500" },
   { id: "called", label: "Called", color: "bg-purple-500" },
   { id: "not_interested", label: "Not Interested", color: "bg-red-500" },
+  { id: "no_response", label: "No Response", color: "bg-gray-500" },
+  { id: "not_qualified", label: "Not Qualified", color: "bg-slate-500" },
   { id: "interested", label: "Interested", color: "bg-orange-500" },
   { id: "onboarding_sent", label: "Onboarding Sent", color: "bg-teal-500" },
   { id: "converted", label: "Converted", color: "bg-emerald-500" },
