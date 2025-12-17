@@ -74,6 +74,12 @@ export default function LeadsPage() {
 
   const topOpportunities = getTopOpportunities(allLeads.filter(l => !l.archived));
 
+  // Filter out "not_interested" leads from table/board view (but keep for chart)
+  // Unless showArchived is on, then show everything
+  const tableLeads = showArchived
+    ? leads
+    : leads.filter(l => l.stage !== "not_interested");
+
   const handleAddLead = () => {
     setSelectedLead(null);
     setIsModalOpen(true);
@@ -86,31 +92,20 @@ export default function LeadsPage() {
 
   const handleStageChange = async (leadId: string, newStage: LeadStage) => {
     try {
-      // Auto-archive leads marked as "not_interested"
-      const updates: Partial<Lead> = { stage: newStage };
-      if (newStage === "not_interested") {
-        updates.archived = true;
-      }
-
       const response = await fetch(`/api/leads/${leadId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(updates),
+        body: JSON.stringify({ stage: newStage }),
       });
 
       const data = await response.json();
 
       if (response.ok) {
-        if (newStage === "not_interested" && !showArchived) {
-          // Remove from list if archived and not showing archived
-          setLeads((prev) => prev.filter((lead) => lead.id !== leadId));
-        } else {
-          setLeads((prev) =>
-            prev.map((lead) =>
-              lead.id === leadId ? { ...lead, ...updates } : lead
-            )
-          );
-        }
+        setLeads((prev) =>
+          prev.map((lead) =>
+            lead.id === leadId ? { ...lead, stage: newStage } : lead
+          )
+        );
         fetchAllLeads(); // Refresh top opportunities
       } else {
         console.error("Failed to update stage:", data.error);
@@ -436,7 +431,7 @@ export default function LeadsPage() {
           {/* Content based on view mode */}
           {viewMode === "table" && (
             <LeadsTable
-              leads={leads}
+              leads={tableLeads}
               onAddLead={handleAddLead}
               onEditLead={handleEditLead}
               onStageChange={handleStageChange}
@@ -450,7 +445,7 @@ export default function LeadsPage() {
           )}
           {viewMode === "kanban" && (
             <KanbanBoard
-              leads={leads}
+              leads={tableLeads}
               onUpdateLead={handleUpdateLead}
               onEditLead={handleEditLead}
             />
