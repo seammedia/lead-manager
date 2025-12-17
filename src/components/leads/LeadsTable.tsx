@@ -51,7 +51,7 @@ interface LeadsTableProps {
 type SortField = "name" | "stage" | "owner" | "source" | "revenue" | "next_action" | "last_contacted" | "created_at";
 type SortDirection = "asc" | "desc";
 
-const ITEMS_PER_PAGE = 6;
+const ITEMS_PER_PAGE = 10;
 
 const owners = ["Heath Maes"];
 
