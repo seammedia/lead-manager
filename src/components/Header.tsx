@@ -65,21 +65,23 @@ export function Header({ title, subtitle }: HeaderProps) {
     setSearchQuery("");
   };
 
-  const handleUpdateLead = async (updatedLead: Lead) => {
-    // Update the lead in the database
-    try {
-      const response = await fetch(`/api/leads/${updatedLead.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(updatedLead),
-      });
+  const handleUpdateLead = (updatedLead: Partial<Lead>) => {
+    if (!selectedLead || !updatedLead.id) return;
 
-      if (response.ok) {
-        setSelectedLead(updatedLead);
-      }
-    } catch (error) {
-      console.error("Failed to update lead:", error);
-    }
+    // Update the lead in the database
+    fetch(`/api/leads/${updatedLead.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(updatedLead),
+    })
+      .then((response) => {
+        if (response.ok) {
+          setSelectedLead({ ...selectedLead, ...updatedLead } as Lead);
+        }
+      })
+      .catch((error) => {
+        console.error("Failed to update lead:", error);
+      });
   };
 
   const handleUpdateLastContacted = async (leadId: string, date: string) => {
