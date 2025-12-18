@@ -733,6 +733,174 @@ if (ARCHIVED_STAGES.includes(newStage)) {
 await supabase.from("leads").update(updates).eq("id", leadId);
 ```
 
+## Instagram/Meta DM Integration
+
+The app supports tracking Instagram DMs as leads via Meta's webhook system.
+
+### Database Setup for Instagram
+
+Run this migration to add Instagram/Facebook ID columns:
+
+```sql
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS instagram_id TEXT;
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS facebook_id TEXT;
+CREATE INDEX IF NOT EXISTS idx_leads_instagram_id ON leads(instagram_id);
+CREATE INDEX IF NOT EXISTS idx_leads_facebook_id ON leads(facebook_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_leads_instagram_id_unique ON leads(instagram_id) WHERE instagram_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_leads_facebook_id_unique ON leads(facebook_id) WHERE facebook_id IS NOT NULL;
+```
+
+### Meta Developer App Setup
+
+1. Go to [Meta for Developers](https://developers.facebook.com/) and create a new app
+2. Select "Business" type app
+3. Add use cases:
+   - **Engage with customers on Messenger from Meta**
+   - **Manage messaging & content on Instagram**
+
+### Webhook Configuration
+
+1. In Meta Developer Dashboard, go to **Use cases** → **Customize** on Instagram use case
+2. Configure webhooks:
+   - **Callback URL**: `https://your-domain.vercel.app/api/meta/webhook`
+   - **Verify Token**: Create a secret (e.g., `seam_media_webhook_verify_2024`)
+3. Add environment variable to Vercel:
+   ```
+   META_WEBHOOK_VERIFY_TOKEN=seam_media_webhook_verify_2024
+   ```
+4. Subscribe to webhook fields:
+   - `messages` - for DM notifications
+   - `messaging_postbacks` - for button clicks
+   - `messaging_referral` - for referral tracking
+
+### Instagram Tester Setup (Development Mode)
+
+For testing without publishing the app:
+
+1. Go to **App roles** → **Add People** → Select **Instagram Tester**
+2. Enter the Instagram username to test with
+3. On Instagram, go to **Settings** → **Apps and websites** → **Tester Invites** → **Accept**
+
+**Important**: Instagram webhooks require the app to be in **published state** for production use. In development mode, you can test with accounts that have tester roles.
+
+### How Instagram DM Tracking Works
+
+When someone DMs your Instagram account:
+
+1. **New Lead Creation**: If the sender isn't in your system, a new lead is created with:
+   - Source: `instagram`
+   - Name: `Instagram User XXXXXX` (last 6 digits of their ID)
+   - Stage: `contacted_1`
+   - Notes: Contains their first message
+
+2. **Existing Lead Response**: If the sender matches an existing lead's `instagram_id`:
+   - Activity logged to the lead
+   - If in early stages (contacted_1, contacted_2, called, no_response), auto-advances to `interested`
+
+### Meta API Routes
+
+| Route | Method | Description |
+|-------|--------|-------------|
+| `/api/meta/auth` | GET | Get Meta OAuth URL |
+| `/api/meta/callback` | GET | OAuth callback |
+| `/api/meta/status` | GET | Check Meta connection |
+| `/api/meta/disconnect` | POST | Disconnect Meta |
+| `/api/meta/webhook` | GET/POST | Webhook verification & events |
+| `/api/meta/sync-leads` | POST | Manually sync leads from Meta Lead Ads |
+
+### Environment Variables for Meta
+
+```
+META_APP_ID=your_meta_app_id
+META_APP_SECRET=your_meta_app_secret
+META_REDIRECT_URI=https://your-domain.vercel.app/api/meta/callback
+META_WEBHOOK_VERIFY_TOKEN=your_webhook_verify_token
+```
+
+## Stats Page Features
+
+### Lead Growth Chart
+
+The Lead Growth Trend chart displays two data series:
+- **Leads** (Blue #3B82F6): Total new leads over time
+- **Conversions** (Green #10B981): Leads that converted
+
+Both are shown as stacked area charts with a legend in the top-right corner.
+
+### Date Range Options
+
+- Last 7 days (daily data)
+- Last 14 days (daily data)
+- Last 30 days (weekly data)
+- This month
+- Last month
+- Custom range with calendar picker
+
+## View Toggles on Leads Page
+
+The leads page includes three filter toggles:
+
+| Toggle | Default | When Active | Stages Affected |
+|--------|---------|-------------|-----------------|
+| **Show On Hold** | Off | Shows paused leads | `on_hold` |
+| **Show Converted** | Off | Shows won deals | `converted` |
+| **Show Archived** | Off | Shows closed/lost leads | `not_interested`, `no_response`, `not_qualified` |
+
+**Behavior**:
+- Hidden leads still count in stats and appear in Chart view
+- Toggles only affect Table and Board views
+- Converted toggle is green when active, positioned between On Hold and Archived
+
+### Stage Filtering Logic
+
+```javascript
+const tableLeads = leads.filter(l => {
+  if (archivedStages.includes(l.stage) && !showArchived) return false;
+  if (l.stage === "on_hold" && !showOnHold) return false;
+  if (l.stage === "converted" && !showConverted) return false;
+  return true;
+});
+```
+
+## Extended Database Schema
+
+### leads (additional columns)
+
+| Column | Type | Description |
+|--------|------|-------------|
+| instagram_id | TEXT | Instagram user ID (for DM tracking) |
+| facebook_id | TEXT | Facebook user ID (for Messenger tracking) |
+| meta_lead_id | TEXT | Meta Lead Ads lead ID |
+
+## Recent Updates Log
+
+### December 2024
+
+1. **Instagram DM Integration**
+   - Added webhook handler for Instagram messages
+   - Auto-creates leads from new DM senders
+   - Auto-advances leads to "interested" when they respond via DM
+   - Added `instagram_id` and `facebook_id` columns to leads table
+
+2. **Chart Color Update**
+   - Lead Growth Trend now shows both Leads (blue) and Conversions (green)
+   - Added legend to distinguish data series
+
+3. **Show Converted Toggle**
+   - Added "Show Converted" button between On Hold and Archived toggles
+   - Converted leads hidden from table/board by default
+   - Still counted in all statistics
+
+4. **On Hold Stage**
+   - Added `on_hold` stage for temporarily paused leads
+   - Separate toggle from archived leads
+   - Not auto-archived when selected
+
+5. **Stage Updates**
+   - Added `no_response` stage for leads who never replied
+   - Added `not_qualified` stage for leads who don't meet criteria
+   - These stages auto-archive when set
+
 ## License
 
 Copyright 2025 Seam Media. All rights reserved.
