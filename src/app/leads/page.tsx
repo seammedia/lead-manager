@@ -8,7 +8,7 @@ import { KanbanBoard } from "@/components/leads/KanbanBoard";
 import { LeadModal } from "@/components/leads/LeadModal";
 import { getTopOpportunities } from "@/lib/mockData";
 import { Lead, LeadStage } from "@/types";
-import { LayoutGrid, List, Plus, Archive, RefreshCw, BarChart2, PauseCircle } from "lucide-react";
+import { LayoutGrid, List, Plus, Archive, RefreshCw, BarChart2, PauseCircle, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { StageChart } from "@/components/leads/StageChart";
 
@@ -25,6 +25,7 @@ export default function LeadsPage() {
   const [composeType, setComposeType] = useState<"followup" | "onboarding" | "general">("followup");
   const [showArchived, setShowArchived] = useState(false);
   const [showOnHold, setShowOnHold] = useState(false);
+  const [showConverted, setShowConverted] = useState(false);
   const [emailSubject, setEmailSubject] = useState("");
   const [emailBody, setEmailBody] = useState("");
   const [isSendingEmail, setIsSendingEmail] = useState(false);
@@ -81,12 +82,15 @@ export default function LeadsPage() {
   // Filter leads for table/board view
   // - Hide archived stages unless showArchived is on
   // - Hide on_hold unless showOnHold is on
+  // - Hide converted unless showConverted is on
   // Chart view gets all leads for complete stats
   const tableLeads = leads.filter(l => {
     // Show archived stages only when showArchived is on
     if (archivedStages.includes(l.stage) && !showArchived) return false;
     // Show on_hold only when showOnHold is on
     if (l.stage === "on_hold" && !showOnHold) return false;
+    // Show converted only when showConverted is on
+    if (l.stage === "converted" && !showConverted) return false;
     return true;
   });
 
@@ -406,6 +410,20 @@ export default function LeadsPage() {
           >
             <PauseCircle className="w-4 h-4" />
             {showOnHold ? "Showing On Hold" : "Show On Hold"}
+          </button>
+
+          {/* Converted Filter Toggle */}
+          <button
+            onClick={() => setShowConverted(!showConverted)}
+            className={cn(
+              "flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border",
+              showConverted
+                ? "bg-green-50 text-green-700 border-green-200"
+                : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
+            )}
+          >
+            <CheckCircle2 className="w-4 h-4" />
+            {showConverted ? "Showing Converted" : "Show Converted"}
           </button>
 
           {/* Archive Filter Toggle */}
