@@ -19,6 +19,10 @@ export interface Lead {
   created_at: string;
   updated_at: string;
   archived?: boolean;
+  // Social media IDs
+  instagram_id?: string | null;
+  facebook_id?: string | null;
+  meta_lead_id?: string | null;
 }
 
 export interface EmailLog {

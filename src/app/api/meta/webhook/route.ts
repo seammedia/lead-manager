@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getLeadDetails, parseLeadData, verifyWebhookSignature } from "@/lib/meta";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
 // Initialize Supabase client
 function getSupabaseClient() {
@@ -12,6 +12,18 @@ function getSupabaseClient() {
   }
 
   return createClient(supabaseUrl, supabaseServiceKey);
+}
+
+// Instagram message types
+interface InstagramMessage {
+  sender: { id: string };
+  recipient: { id: string };
+  timestamp: number;
+  message?: {
+    mid: string;
+    text?: string;
+    attachments?: Array<{ type: string; payload: { url: string } }>;
+  };
 }
 
 // GET - Webhook verification (Meta sends this to verify your endpoint)
@@ -33,7 +45,7 @@ export async function GET(request: NextRequest) {
   return new NextResponse("Forbidden", { status: 403 });
 }
 
-// POST - Receive lead notifications
+// POST - Receive lead notifications and Instagram messages
 export async function POST(request: NextRequest) {
   try {
     const payload = await request.text();
@@ -50,9 +62,20 @@ export async function POST(request: NextRequest) {
     const data = JSON.parse(payload);
     console.log("Received Meta webhook:", JSON.stringify(data, null, 2));
 
-    // Process leadgen entries
+    // Process Instagram messages
+    if (data.object === "instagram") {
+      for (const entry of data.entry || []) {
+        const igAccountId = entry.id;
+        for (const messagingEvent of entry.messaging || []) {
+          await processInstagramMessage(messagingEvent, igAccountId);
+        }
+      }
+    }
+
+    // Process Facebook Page events (leadgen and Messenger)
     if (data.object === "page") {
       for (const entry of data.entry || []) {
+        // Handle leadgen events
         for (const change of entry.changes || []) {
           if (change.field === "leadgen") {
             const leadgenId = change.value.leadgen_id;
@@ -60,10 +83,13 @@ export async function POST(request: NextRequest) {
             const formId = change.value.form_id;
 
             console.log(`New lead received: ${leadgenId} from page ${pageId}, form ${formId}`);
-
-            // Queue lead for processing
             await processNewLead(leadgenId, pageId);
           }
+        }
+
+        // Handle Messenger events
+        for (const messagingEvent of entry.messaging || []) {
+          await processMessengerMessage(messagingEvent, entry.id);
         }
       }
     }
@@ -132,5 +158,158 @@ async function processNewLead(leadId: string, pageId: string) {
     }
   } catch (error) {
     console.error("Error processing lead:", error);
+  }
+}
+
+// Process Instagram DM messages
+async function processInstagramMessage(messagingEvent: InstagramMessage, igAccountId: string) {
+  try {
+    const supabase = getSupabaseClient();
+    const senderId = messagingEvent.sender.id;
+    const messageText = messagingEvent.message?.text || "";
+    const timestamp = new Date(messagingEvent.timestamp).toISOString();
+
+    // Skip if this is an outgoing message (sender is us)
+    if (senderId === igAccountId) {
+      console.log("Skipping outgoing message");
+      return;
+    }
+
+    console.log(`Instagram DM from ${senderId}: ${messageText}`);
+
+    // Check if we already have a lead with this Instagram ID
+    const { data: existingLead } = await supabase
+      .from("leads")
+      .select("*")
+      .eq("instagram_id", senderId)
+      .single();
+
+    if (existingLead) {
+      // Update existing lead - they responded!
+      console.log(`Existing lead found: ${existingLead.name}`);
+
+      // Log the message activity
+      await supabase.from("activities").insert({
+        lead_id: existingLead.id,
+        type: "note",
+        description: `Instagram DM received: "${messageText.substring(0, 100)}${messageText.length > 100 ? "..." : ""}"`,
+        created_at: timestamp,
+      });
+
+      // If lead was in an early stage, they responded - move to interested
+      const earlyStages = ["contacted_1", "contacted_2", "called", "no_response"];
+      if (earlyStages.includes(existingLead.stage)) {
+        await supabase
+          .from("leads")
+          .update({
+            stage: "interested",
+            updated_at: new Date().toISOString(),
+            last_contacted: timestamp,
+          })
+          .eq("id", existingLead.id);
+
+        console.log(`Lead ${existingLead.name} moved to interested (responded via IG DM)`);
+      }
+    } else {
+      // Create new lead from Instagram DM
+      const { error: insertError } = await supabase.from("leads").insert({
+        name: `Instagram User ${senderId.slice(-6)}`, // Placeholder name
+        company: "Unknown",
+        email: "", // Will need to be collected
+        phone: null,
+        stage: "contacted_1",
+        source: "instagram",
+        owner: "Heath Maes",
+        conversion_probability: 25,
+        notes: `Lead from Instagram DM. First message: "${messageText.substring(0, 200)}"`,
+        instagram_id: senderId,
+        created_at: timestamp,
+        updated_at: timestamp,
+        last_contacted: timestamp,
+      });
+
+      if (insertError) {
+        console.error("Error creating Instagram lead:", insertError);
+      } else {
+        console.log(`New Instagram lead created from DM: ${senderId}`);
+      }
+    }
+  } catch (error) {
+    console.error("Error processing Instagram message:", error);
+  }
+}
+
+// Process Facebook Messenger messages
+async function processMessengerMessage(messagingEvent: InstagramMessage, pageId: string) {
+  try {
+    const supabase = getSupabaseClient();
+    const senderId = messagingEvent.sender.id;
+    const messageText = messagingEvent.message?.text || "";
+    const timestamp = new Date(messagingEvent.timestamp).toISOString();
+
+    // Skip if this is an outgoing message (sender is the page)
+    if (senderId === pageId) {
+      console.log("Skipping outgoing Messenger message");
+      return;
+    }
+
+    console.log(`Messenger message from ${senderId}: ${messageText}`);
+
+    // Check if we already have a lead with this Facebook ID
+    const { data: existingLead } = await supabase
+      .from("leads")
+      .select("*")
+      .eq("facebook_id", senderId)
+      .single();
+
+    if (existingLead) {
+      // Log the message activity
+      await supabase.from("activities").insert({
+        lead_id: existingLead.id,
+        type: "note",
+        description: `Messenger received: "${messageText.substring(0, 100)}${messageText.length > 100 ? "..." : ""}"`,
+        created_at: timestamp,
+      });
+
+      // If lead was in an early stage, they responded
+      const earlyStages = ["contacted_1", "contacted_2", "called", "no_response"];
+      if (earlyStages.includes(existingLead.stage)) {
+        await supabase
+          .from("leads")
+          .update({
+            stage: "interested",
+            updated_at: new Date().toISOString(),
+            last_contacted: timestamp,
+          })
+          .eq("id", existingLead.id);
+
+        console.log(`Lead ${existingLead.name} moved to interested (responded via Messenger)`);
+      }
+    } else {
+      // Create new lead from Messenger
+      const { error: insertError } = await supabase.from("leads").insert({
+        name: `Facebook User ${senderId.slice(-6)}`,
+        company: "Unknown",
+        email: "",
+        phone: null,
+        stage: "contacted_1",
+        source: "other", // Could add "messenger" as a source
+        owner: "Heath Maes",
+        conversion_probability: 25,
+        notes: `Lead from Facebook Messenger. First message: "${messageText.substring(0, 200)}"`,
+        facebook_id: senderId,
+        created_at: timestamp,
+        updated_at: timestamp,
+        last_contacted: timestamp,
+      });
+
+      if (insertError) {
+        console.error("Error creating Messenger lead:", insertError);
+      } else {
+        console.log(`New Messenger lead created: ${senderId}`);
+      }
+    }
+  } catch (error) {
+    console.error("Error processing Messenger message:", error);
   }
 }
