@@ -4,7 +4,7 @@ A comprehensive CRM and lead management platform for Seam Media, featuring Gmail
 
 ## Features
 
-- **Lead Management** - Track leads through 8 stages with auto-archiving for "Not Interested"
+- **Lead Management** - Track leads through 10 stages with auto-archiving for closed leads
 - **PIN Authentication** - Simple PIN login (202417) with 30-day session persistence
 - **Multiple Views** - Table view, Kanban board, and Chart view for visualizing leads
 - **Global Search** - Search leads by name, email, or company from the header
@@ -566,7 +566,7 @@ curl -H "Authorization: Bearer your_cron_secret" http://localhost:3000/api/cron/
 
 - [ ] All environment variables set in Vercel
 - [ ] Supabase migrations run (leads, email_logs, business_context, settings tables)
-- [ ] Stage constraint updated for all 8 stages
+- [ ] Stage constraint updated for all 10 stages
 - [ ] Gmail OAuth redirect URI matches Vercel domain
 - [ ] OpenAI API key is valid and has credits
 - [ ] CRON_SECRET set in Vercel
@@ -579,6 +579,159 @@ curl -H "Authorization: Bearer your_cron_secret" http://localhost:3000/api/cron/
 - [ ] Test AI draft generation
 - [ ] Test email sending
 - [ ] Test cron job manually
+
+## UI Configuration
+
+### Table Pagination
+
+- **Leads per page**: 10 (configurable in `LeadsTable.tsx` via `ITEMS_PER_PAGE`)
+- Shows "Showing X to Y of Z leads" at bottom
+- Pagination controls appear when leads exceed page size
+
+### View Toggles
+
+The leads page includes filter toggles:
+- **Show On Hold**: Reveals leads in "on_hold" stage (hidden by default)
+- **Show Archived**: Reveals leads in archived stages (not_interested, no_response, not_qualified)
+
+## Learnings & Implementation Notes
+
+### Stage Management
+
+**Stages evolved from 8 to 10:**
+1. Removed "new" stage - leads now start at "contacted_1" since auto-email is sent
+2. Added "no_response" - for leads who never replied (separate from active decline)
+3. Added "not_qualified" - for leads who don't meet criteria
+4. Added "on_hold" - for temporarily paused leads
+
+**Auto-Archive Logic** (in `/api/leads/[id]/route.ts`):
+- Stages `not_interested`, `no_response`, `not_qualified` auto-set `archived: true`
+- Changing to any other stage auto-sets `archived: false`
+- This keeps the main view clean while preserving lead data
+
+**Stage Filtering** (in `/app/leads/page.tsx`):
+```javascript
+const archivedStages = ["not_interested", "no_response", "not_qualified"];
+const tableLeads = leads.filter(l => {
+  if (archivedStages.includes(l.stage) && !showArchived) return false;
+  if (l.stage === "on_hold" && !showOnHold) return false;
+  return true;
+});
+```
+
+### Real-Time Response Detection
+
+**Problem**: Leads who respond to emails shouldn't receive automatic follow-ups.
+
+**Solution**: The `/api/leads/check-responses` endpoint checks Gmail for responses:
+- Called when inbox loads/refreshes
+- Called when viewing a lead modal (if lead is in "contacted_1")
+- Checks for emails FROM the lead after `last_contacted` date
+- Auto-advances responding leads to "interested" stage
+
+**Implementation**:
+```javascript
+// Check if lead responded
+const query = `from:${lead.email}`;
+const responseEmails = await listEmails(accessToken, refreshToken, { query });
+const hasResponded = responseEmails.some(email =>
+  new Date(email.date) > new Date(lead.last_contacted)
+);
+if (hasResponded) {
+  await supabase.from("leads").update({ stage: "interested" }).eq("id", lead.id);
+}
+```
+
+### Stage Colors Reference
+
+| Stage | Tailwind BG | Hex Color |
+|-------|-------------|-----------|
+| contacted_1 | yellow-100/500 | #eab308 |
+| contacted_2 | pink-100/500 | #ec4899 |
+| called | purple-100/500 | #a855f7 |
+| not_interested | red-100/500 | #ef4444 |
+| no_response | gray-100/500 | #6b7280 |
+| not_qualified | slate-100/500 | #475569 |
+| on_hold | amber-100/500 | #f59e0b |
+| interested | orange-100/500 | #f97316 |
+| onboarding_sent | teal-100/500 | #14b8a6 |
+| converted | emerald-100/500 | #10b981 |
+
+### Files to Update When Adding/Modifying Stages
+
+1. **Type definitions**:
+   - `src/types/index.ts` - LeadStage type
+   - `src/lib/supabase.ts` - LeadStage type
+
+2. **UI Components**:
+   - `src/components/leads/LeadStageTag.tsx` - stageConfig, stageOrder
+   - `src/components/leads/StageChart.tsx` - stageConfig, stageOrder, stageCounts
+   - `src/components/leads/KanbanBoard.tsx` - stages array
+   - `src/components/leads/LeadModal.tsx` - stages array
+   - `src/components/leads/LeadsTable.tsx` - stagePriority
+
+3. **API Routes**:
+   - `src/app/api/leads/route.ts` - default stage
+   - `src/app/api/leads/[id]/route.ts` - ARCHIVED_STAGES array
+   - `src/app/api/meta/webhook/route.ts` - default stage
+   - `src/app/api/meta/sync-leads/route.ts` - default stage
+   - `src/app/api/leads/migrate-stages/route.ts` - stageMapping
+
+4. **Page Logic**:
+   - `src/app/leads/page.tsx` - archivedStages filter
+
+5. **Database**:
+   - Update Supabase constraint with new stage values
+
+### Key Constants
+
+```javascript
+// Leads table pagination
+const ITEMS_PER_PAGE = 10;  // LeadsTable.tsx
+
+// Stages that auto-archive
+const ARCHIVED_STAGES = ["not_interested", "no_response", "not_qualified"];
+
+// Follow-up timing
+const FOLLOW_UP_DAYS = 2;  // Days before sending follow-up
+
+// Session duration
+const SESSION_DAYS = 30;  // PIN login session length
+```
+
+### Common Supabase Queries
+
+**Get all active leads (not archived):**
+```javascript
+const { data } = await supabase
+  .from("leads")
+  .select("*")
+  .eq("archived", false)
+  .order("created_at", { ascending: false });
+```
+
+**Get leads needing follow-up:**
+```javascript
+const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString();
+const { data } = await supabase
+  .from("leads")
+  .select("*")
+  .eq("stage", "contacted_1")
+  .eq("archived", false)
+  .lt("last_contacted", twoDaysAgo);
+```
+
+**Update stage with auto-archive:**
+```javascript
+const ARCHIVED_STAGES = ["not_interested", "no_response", "not_qualified"];
+const updates = { stage: newStage };
+if (ARCHIVED_STAGES.includes(newStage)) {
+  updates.archived = true;
+} else {
+  updates.archived = false;
+}
+await supabase.from("leads").update(updates).eq("id", leadId);
+```
 
 ## License
 
