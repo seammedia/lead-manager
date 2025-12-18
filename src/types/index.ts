@@ -19,6 +19,7 @@ export interface Lead {
   created_at: string;
   updated_at: string;
   archived?: boolean;
+  converted_at?: string | null;
   // Social media IDs
   instagram_id?: string | null;
   facebook_id?: string | null;

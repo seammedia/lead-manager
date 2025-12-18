@@ -57,6 +57,15 @@ export async function PATCH(
       updates.archived = false;
     }
 
+    // Set converted_at timestamp when stage changes to "converted"
+    if (updates.stage === "converted") {
+      updates.converted_at = new Date().toISOString();
+    }
+    // Clear converted_at if stage changes away from "converted"
+    else if (updates.stage && updates.stage !== "converted") {
+      updates.converted_at = null;
+    }
+
     const supabase = getServiceSupabase();
     const { data: lead, error } = await supabase
       .from("leads")

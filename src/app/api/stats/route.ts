@@ -228,8 +228,10 @@ export async function GET(request: NextRequest) {
         }).length;
 
         const dayConversions = leads.filter((lead) => {
-          const createdAt = new Date(lead.created_at);
-          return createdAt >= date && createdAt < nextDate && lead.stage === "converted";
+          if (lead.stage !== "converted") return false;
+          // Use converted_at if available, otherwise fall back to created_at
+          const convertedAt = lead.converted_at ? new Date(lead.converted_at) : new Date(lead.created_at);
+          return convertedAt >= date && convertedAt < nextDate;
         }).length;
 
         const label = `${dayNames[date.getDay()]} ${date.getDate()}`;
@@ -256,8 +258,10 @@ export async function GET(request: NextRequest) {
         }).length;
 
         const weekConversions = leads.filter((lead) => {
-          const createdAt = new Date(lead.created_at);
-          return createdAt >= weekStart && createdAt <= weekEnd && lead.stage === "converted";
+          if (lead.stage !== "converted") return false;
+          // Use converted_at if available, otherwise fall back to created_at
+          const convertedAt = lead.converted_at ? new Date(lead.converted_at) : new Date(lead.created_at);
+          return convertedAt >= weekStart && convertedAt <= weekEnd;
         }).length;
 
         leadsTrend.push({
