@@ -227,10 +227,16 @@ export async function GET(request: NextRequest) {
           return createdAt >= date && createdAt < nextDate;
         }).length;
 
+        const dayConversions = leads.filter((lead) => {
+          const createdAt = new Date(lead.created_at);
+          return createdAt >= date && createdAt < nextDate && lead.stage === "converted";
+        }).length;
+
         const label = `${dayNames[date.getDay()]} ${date.getDate()}`;
         leadsTrend.push({
           week: label,
-          count: dayLeads,
+          leads: dayLeads,
+          conversions: dayConversions,
         });
       }
     } else {
@@ -249,9 +255,15 @@ export async function GET(request: NextRequest) {
           return createdAt >= weekStart && createdAt <= weekEnd;
         }).length;
 
+        const weekConversions = leads.filter((lead) => {
+          const createdAt = new Date(lead.created_at);
+          return createdAt >= weekStart && createdAt <= weekEnd && lead.stage === "converted";
+        }).length;
+
         leadsTrend.push({
           week: formatDateRange(weekStart, weekEnd),
-          count: weekLeads,
+          leads: weekLeads,
+          conversions: weekConversions,
         });
       }
     }

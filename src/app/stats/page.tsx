@@ -20,7 +20,7 @@ interface StatsApiResponse {
     conversions: number;
     convRate: number;
   };
-  leadsTrend: { week: string; count: number }[];
+  leadsTrend: { week: string; leads: number; conversions: number }[];
   leadsSourceBreakdown: { source: string; count: number; color: string }[];
   conversionsSourceBreakdown: { source: string; count: number; color: string }[];
   revenue: {

@@ -8,10 +8,11 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
+  Legend,
 } from "recharts";
 
 interface LeadGrowthChartProps {
-  data: { week: string; count: number }[];
+  data: { week: string; leads: number; conversions: number }[];
 }
 
 export function LeadGrowthChart({ data }: LeadGrowthChartProps) {
@@ -22,7 +23,11 @@ export function LeadGrowthChart({ data }: LeadGrowthChartProps) {
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={data}>
             <defs>
-              <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
+              <linearGradient id="colorLeads" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.3} />
+                <stop offset="95%" stopColor="#3B82F6" stopOpacity={0} />
+              </linearGradient>
+              <linearGradient id="colorConversions" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor="#10B981" stopOpacity={0.3} />
                 <stop offset="95%" stopColor="#10B981" stopOpacity={0} />
               </linearGradient>
@@ -47,12 +52,26 @@ export function LeadGrowthChart({ data }: LeadGrowthChartProps) {
                 boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
               }}
             />
+            <Legend
+              verticalAlign="top"
+              align="right"
+              wrapperStyle={{ paddingBottom: "10px" }}
+            />
             <Area
               type="monotone"
-              dataKey="count"
+              dataKey="leads"
+              name="Leads"
+              stroke="#3B82F6"
+              strokeWidth={2}
+              fill="url(#colorLeads)"
+            />
+            <Area
+              type="monotone"
+              dataKey="conversions"
+              name="Conversions"
               stroke="#10B981"
               strokeWidth={2}
-              fill="url(#colorCount)"
+              fill="url(#colorConversions)"
             />
           </AreaChart>
         </ResponsiveContainer>
