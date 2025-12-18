@@ -281,7 +281,7 @@ To automatically import leads from Facebook/Meta Lead Ads:
 ### 6. Automated Follow-up Cron Setup
 
 The app includes an automated follow-up system that:
-- Checks for leads in "Contacted 1" stage with no contact for 2+ days
+- Checks for leads in "Contacted 1" stage with no contact for 24+ hours
 - If no response from lead: Sends follow-up email, moves to "Contacted 2"
 - If lead responded: Moves to "Interested"
 
@@ -402,7 +402,7 @@ When a lead is marked "Not Interested":
 ### Automated Follow-up System
 
 The `/api/cron/follow-up` endpoint:
-1. Finds leads in "contacted_1" with `last_contacted` > 2 days ago
+1. Finds leads in "contacted_1" with `last_contacted` > 24 hours ago
 2. Checks Gmail for responses (emails FROM the lead)
 3. If no response: Sends follow-up email, moves to "contacted_2"
 4. If responded: Moves to "interested"
@@ -693,7 +693,7 @@ const ITEMS_PER_PAGE = 10;  // LeadsTable.tsx
 const ARCHIVED_STAGES = ["not_interested", "no_response", "not_qualified"];
 
 // Follow-up timing
-const FOLLOW_UP_DAYS = 2;  // Days before sending follow-up
+const FOLLOW_UP_HOURS = 24;  // Hours before sending follow-up
 
 // Session duration
 const SESSION_DAYS = 30;  // PIN login session length
@@ -712,13 +712,13 @@ const { data } = await supabase
 
 **Get leads needing follow-up:**
 ```javascript
-const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString();
+const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 const { data } = await supabase
   .from("leads")
   .select("*")
   .eq("stage", "contacted_1")
   .eq("archived", false)
-  .lt("last_contacted", twoDaysAgo);
+  .lt("last_contacted", oneDayAgo);
 ```
 
 **Update stage with auto-archive:**

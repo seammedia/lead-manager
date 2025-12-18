@@ -18,20 +18,20 @@ export async function GET(request: NextRequest) {
 
     const supabase = getServiceSupabase();
 
-    // Calculate the cutoff date (2 days ago)
-    const twoDaysAgo = new Date();
-    twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+    // Calculate the cutoff date (24 hours ago)
+    const oneDayAgo = new Date();
+    oneDayAgo.setDate(oneDayAgo.getDate() - 1);
 
     // Find leads that:
     // 1. Are in "contacted_1" stage
-    // 2. Were last contacted more than 2 days ago
+    // 2. Were last contacted more than 24 hours ago
     // 3. Are not archived
     const { data: leads, error: leadsError } = await supabase
       .from("leads")
       .select("*")
       .eq("stage", "contacted_1")
       .eq("archived", false)
-      .lt("last_contacted", twoDaysAgo.toISOString())
+      .lt("last_contacted", oneDayAgo.toISOString())
       .not("last_contacted", "is", null);
 
     if (leadsError) {
