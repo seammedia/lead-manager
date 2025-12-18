@@ -871,6 +871,7 @@ const tableLeads = leads.filter(l => {
 | instagram_id | TEXT | Instagram user ID (for DM tracking) |
 | facebook_id | TEXT | Facebook user ID (for Messenger tracking) |
 | meta_lead_id | TEXT | Meta Lead Ads lead ID |
+| converted_at | TIMESTAMP | When the lead was converted (auto-set when stage = converted) |
 
 ## Recent Updates Log
 
@@ -900,6 +901,36 @@ const tableLeads = leads.filter(l => {
    - Added `no_response` stage for leads who never replied
    - Added `not_qualified` stage for leads who don't meet criteria
    - These stages auto-archive when set
+
+6. **Follow-up Timing Changed to 24 Hours**
+   - Automated follow-up emails now sent 24 hours after first contact (was 48 hours)
+   - Leads move from `contacted_1` to `contacted_2` after 24 hours with no response
+   - Faster follow-up cycle for better engagement
+
+7. **Conversion Date Tracking**
+   - Added `converted_at` column to track when leads actually converted
+   - Stats chart now shows conversions on the date they converted (not when lead was created)
+   - Auto-sets `converted_at` when stage changes to "converted"
+   - Auto-clears `converted_at` if stage changes away from "converted"
+
+### Database Migration for converted_at
+
+```sql
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS converted_at TIMESTAMP WITH TIME ZONE;
+CREATE INDEX IF NOT EXISTS idx_leads_converted_at ON leads(converted_at);
+UPDATE leads SET converted_at = NOW() WHERE stage = 'converted' AND converted_at IS NULL;
+```
+
+## Conversion Tracking
+
+Conversions are tracked by the `converted_at` timestamp, not `created_at`. This ensures:
+- Stats show conversions on the actual conversion date
+- Lead Growth Trend chart accurately reflects when deals closed
+- Historical data remains accurate even if lead was created weeks ago
+
+**Auto-behavior:**
+- Setting stage to "converted" → `converted_at` = current timestamp
+- Changing stage away from "converted" → `converted_at` = null
 
 ## License
 
