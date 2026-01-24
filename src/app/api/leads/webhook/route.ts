@@ -78,8 +78,8 @@ export async function POST(request: NextRequest) {
       company: body.company || "",
       phone: body.phone || null,
       stage: "contacted_1" as const,
-      source: "meta_ads" as const,
-      owner: "Heath",
+      source: body.source || "meta_ads" as const,
+      owner: body.owner || "Heath",
       conversion_probability: 20,
       revenue: null,
       notes: body.notes || null,
@@ -125,11 +125,11 @@ export async function GET() {
     status: "ok",
     message: "Leads webhook is active. Send a POST request with lead data.",
     required_fields: ["name", "email"],
-    optional_fields: ["company", "phone", "notes", "meta_lead_id"],
+    optional_fields: ["company", "phone", "notes", "meta_lead_id", "owner", "source"],
     defaults: {
       stage: "contacted_1",
-      source: "meta_ads",
-      owner: "Heath",
+      source: "meta_ads (if not provided)",
+      owner: "Heath (if not provided)",
       last_contacted: "current timestamp"
     }
   });
