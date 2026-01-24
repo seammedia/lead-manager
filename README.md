@@ -527,6 +527,11 @@ curl -H "Authorization: Bearer your_cron_secret" http://localhost:3000/api/cron/
 | last_contacted | TIMESTAMP | Last contact date |
 | archived | BOOLEAN | Archive status |
 | meta_lead_id | TEXT | Meta Ads lead ID |
+| converted_at | TIMESTAMP | When lead was converted |
+| sign_on_date | DATE | Customer sign on date (for LTV tracking) |
+| exit_date | DATE | Customer exit/churn date (for LTV tracking) |
+| instagram_id | TEXT | Instagram user ID (for DM tracking) |
+| facebook_id | TEXT | Facebook user ID (for Messenger tracking) |
 | created_at | TIMESTAMP | Creation date |
 | updated_at | TIMESTAMP | Last update |
 
@@ -683,6 +688,23 @@ if (hasResponded) {
 5. **Database**:
    - Update Supabase constraint with new stage values
 
+### Files to Update When Adding New Lead Fields
+
+1. **Type definitions**:
+   - `src/types/index.ts` - Add to Lead interface
+
+2. **Lead Modal** (for editable fields):
+   - `src/components/leads/LeadModal.tsx` - Add to formData state, useEffect, handleSubmit, and form JSX
+
+3. **API Routes** (for auto-set fields):
+   - `src/app/api/leads/[id]/route.ts` - Add auto-set logic in PATCH handler
+
+4. **Stats API** (if field affects stats):
+   - `src/app/api/stats/route.ts` - Add calculations and include in response
+
+5. **Database**:
+   - Run `ALTER TABLE leads ADD COLUMN` in Supabase SQL Editor
+
 ### Key Constants
 
 ```javascript
@@ -836,6 +858,32 @@ Both are shown as stacked area charts with a legend in the top-right corner.
 - Last month
 - Custom range with calendar picker
 
+### Cost Metrics
+
+Two editable/calculated metric boxes below the Lead Growth Trend:
+
+| Metric | Type | Description |
+|--------|------|-------------|
+| **Cost Per Lead (CPL)** | Manual input | Click to edit, enter your ad spend / leads. Saved to localStorage |
+| **Cost Per Acquisition (CPA)** | Auto-calculated | `(CPL × Total Leads) ÷ Conversions` |
+
+**How it works:**
+1. Enter your Cost Per Lead (e.g., if you spent $100 on ads and got 20 leads, CPL = $5.00)
+2. CPA automatically calculates based on your CPL and conversion count
+3. CPL persists across sessions via browser localStorage
+
+**Formula:**
+```
+Total Ad Spend = CPL × Total Leads
+CPA = Total Ad Spend ÷ Conversions
+```
+
+**Example:**
+- CPL: $5.50 (manually entered)
+- Total Leads: 23
+- Conversions: 1
+- CPA = ($5.50 × 23) ÷ 1 = $126.50
+
 ## View Toggles on Leads Page
 
 The leads page includes three filter toggles:
@@ -872,6 +920,8 @@ const tableLeads = leads.filter(l => {
 | facebook_id | TEXT | Facebook user ID (for Messenger tracking) |
 | meta_lead_id | TEXT | Meta Lead Ads lead ID |
 | converted_at | TIMESTAMP | When the lead was converted (auto-set when stage = converted) |
+| sign_on_date | DATE | Customer sign on date (auto-set when stage = converted) |
+| exit_date | DATE | Customer exit/churn date (manually set when customer leaves) |
 
 ## Recent Updates Log
 
@@ -913,6 +963,35 @@ const tableLeads = leads.filter(l => {
    - Auto-sets `converted_at` when stage changes to "converted"
    - Auto-clears `converted_at` if stage changes away from "converted"
 
+8. **Cost Per Lead & Cost Per Acquisition Metrics**
+   - Added two metric boxes below Lead Growth Trend chart on Stats page
+   - Cost Per Lead (CPL): Manually editable, click to update, saved to localStorage
+   - Cost Per Acquisition (CPA): Auto-calculated as `(CPL × Total Leads) ÷ Conversions`
+   - Helps track ad spend efficiency and customer acquisition costs
+   - Component: `src/components/stats/CostMetrics.tsx`
+
+9. **ROAS (Return on Ad Spend)**
+   - Added ROAS metric box on Stats page
+   - Auto-calculated as `Average Deal Size ÷ Cost Per Acquisition`
+   - Shows how much revenue you generate per dollar spent on acquisition
+   - Example: $449 avg deal / $198.56 CPA = 2.3X ROAS
+
+10. **Lifetime Value ROAS**
+    - Added dynamic LTV ROAS calculation based on customer lifetime
+    - Calculates average customer lifetime in months across all converted customers
+    - Formula: `ROAS × Average Lifetime Months`
+    - For active customers: lifetime = today - sign_on_date
+    - For churned customers: lifetime = exit_date - sign_on_date
+    - Example: 2.3X ROAS × 1 month = 2.3X LTV ROAS
+    - Example: 2.3X ROAS × 2 months = 4.6X LTV ROAS
+
+11. **Customer Lifecycle Fields**
+    - Added `sign_on_date` and `exit_date` fields to Lead modal
+    - Sign On Date: Auto-set to today when lead converts (can be manually edited)
+    - Exit Date: Manually entered when customer churns
+    - Fields appear below "Next Action" in the lead edit modal
+    - Used to calculate average customer lifetime for LTV ROAS
+
 ### Database Migration for converted_at
 
 ```sql
@@ -931,6 +1010,85 @@ Conversions are tracked by the `converted_at` timestamp, not `created_at`. This 
 **Auto-behavior:**
 - Setting stage to "converted" → `converted_at` = current timestamp
 - Changing stage away from "converted" → `converted_at` = null
+
+## Customer Lifecycle Tracking
+
+Track customer sign on and exit dates for lifetime value ROAS calculations.
+
+### Database Migration for sign_on_date and exit_date
+
+```sql
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS sign_on_date DATE;
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS exit_date DATE;
+```
+
+### Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `sign_on_date` | DATE | When customer signed on (auto-set when stage → converted) |
+| `exit_date` | DATE | When customer churned (manually set) |
+
+**Auto-behavior:**
+- Setting stage to "converted" → `sign_on_date` = today's date (if not already set)
+- Exit date is manually entered when a customer leaves
+
+### One-time Migration for Existing Converted Leads
+
+Call this endpoint once after adding the columns to set sign on dates for existing converted leads:
+
+```bash
+curl -X POST https://your-domain.vercel.app/api/leads/migrate-sign-on-dates
+```
+
+### Lifetime Value ROAS Calculation
+
+The LTV ROAS is calculated dynamically based on average customer lifetime:
+
+```
+Average Lifetime Months = Sum of all customer lifetimes / Number of converted customers
+
+For each customer:
+- If exit_date exists: lifetime = (exit_date - sign_on_date) / 30 days
+- If still active: lifetime = (today - sign_on_date) / 30 days
+
+LTV ROAS = ROAS × Average Lifetime Months (minimum 1 month)
+```
+
+**Example progression:**
+| Avg Customer Lifetime | ROAS | LTV ROAS |
+|----------------------|------|----------|
+| 1 month | 2.3X | 2.3X |
+| 2 months | 2.3X | 4.6X |
+| 3 months | 2.3X | 6.9X |
+| 6 months | 2.3X | 13.8X |
+| 12 months | 2.3X | 27.6X |
+
+The Stats page shows "ROAS × X.X months avg" as the subtitle so you can see the multiplier being used.
+
+## Stats Page Metrics
+
+The stats page displays four cost/return metrics in a 2x2 grid:
+
+| Metric | Type | Formula |
+|--------|------|---------|
+| **Cost Per Lead (CPL)** | Manual input | Enter manually, saved to localStorage |
+| **Cost Per Acquisition (CPA)** | Auto-calculated | `(CPL × Total Leads) ÷ Conversions` |
+| **ROAS** | Auto-calculated | `Average Deal Size ÷ CPA` |
+| **Lifetime Value ROAS** | Auto-calculated | `ROAS × Average Lifetime Months` |
+
+### How to Use
+
+1. **Enter your CPL**: Click the Cost Per Lead box and enter your cost (e.g., if you spent $100 on ads and got 20 leads, CPL = $5.00)
+2. **CPA auto-calculates**: Based on CPL, total leads, and conversions
+3. **ROAS auto-calculates**: Based on average deal size and CPA
+4. **LTV ROAS auto-calculates**: Based on ROAS and average customer lifetime
+
+### Files
+
+- Stats page: `src/app/stats/page.tsx`
+- Cost metrics component: `src/components/stats/CostMetrics.tsx`
+- Stats API (includes avgLifetimeMonths): `src/app/api/stats/route.ts`
 
 ## License
 

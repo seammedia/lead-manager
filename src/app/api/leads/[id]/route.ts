@@ -57,9 +57,13 @@ export async function PATCH(
       updates.archived = false;
     }
 
-    // Set converted_at timestamp when stage changes to "converted"
+    // Set converted_at and sign_on_date timestamp when stage changes to "converted"
     if (updates.stage === "converted") {
       updates.converted_at = new Date().toISOString();
+      // Only set sign_on_date if not already set (don't overwrite manual entry)
+      if (!body.sign_on_date) {
+        updates.sign_on_date = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+      }
     }
     // Clear converted_at if stage changes away from "converted"
     else if (updates.stage && updates.stage !== "converted") {

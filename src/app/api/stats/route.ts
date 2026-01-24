@@ -207,6 +207,22 @@ export async function GET(request: NextRequest) {
       ? totalRevenue / convertedWithRevenue.length
       : 0;
 
+    // Calculate average customer lifetime in months for LTV ROAS
+    const convertedWithSignOn = leads.filter((l) => l.stage === "converted" && l.sign_on_date);
+    let avgLifetimeMonths = 0;
+
+    if (convertedWithSignOn.length > 0) {
+      const totalMonths = convertedWithSignOn.reduce((sum, lead) => {
+        const signOnDate = new Date(lead.sign_on_date);
+        const endDate = lead.exit_date ? new Date(lead.exit_date) : now;
+        const diffMs = endDate.getTime() - signOnDate.getTime();
+        const diffDays = diffMs / (1000 * 60 * 60 * 24);
+        const months = Math.max(diffDays / 30, 0); // At least 0 months
+        return sum + months;
+      }, 0);
+      avgLifetimeMonths = totalMonths / convertedWithSignOn.length;
+    }
+
     // Calculate lead growth trend based on period
     const leadsTrend = [];
     const daysNum = parseInt(period, 10);
@@ -293,6 +309,7 @@ export async function GET(request: NextRequest) {
         avgDealSize: Math.round(avgDealSize),
         bySource: revenueSourceBreakdown,
       },
+      avgLifetimeMonths: Math.round(avgLifetimeMonths * 10) / 10, // Round to 1 decimal
     });
   } catch (error) {
     console.error("Error:", error);

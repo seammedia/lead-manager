@@ -20,6 +20,9 @@ export interface Lead {
   updated_at: string;
   archived?: boolean;
   converted_at?: string | null;
+  // Customer lifecycle tracking
+  sign_on_date?: string | null;
+  exit_date?: string | null;
   // Social media IDs
   instagram_id?: string | null;
   facebook_id?: string | null;

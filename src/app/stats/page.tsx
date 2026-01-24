@@ -7,6 +7,7 @@ import { LeadGrowthChart } from "@/components/stats/LeadGrowthChart";
 import { SourcePieChart } from "@/components/stats/SourcePieChart";
 import { RevenueSourceChart } from "@/components/stats/RevenueSourceChart";
 import { DateRangePicker } from "@/components/stats/DateRangePicker";
+import { CostMetrics } from "@/components/stats/CostMetrics";
 import { TimePeriod } from "@/types";
 
 interface StatsApiResponse {
@@ -30,6 +31,7 @@ interface StatsApiResponse {
     avgDealSize: number;
     bySource: { source: string; amount: number; color: string }[];
   };
+  avgLifetimeMonths: number;
 }
 
 export default function StatsPage() {
@@ -126,8 +128,9 @@ export default function StatsPage() {
 
       {/* Lead Growth Trend and Source Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-        <div className="lg:col-span-2">
+        <div className="lg:col-span-2 space-y-4">
           <LeadGrowthChart data={stats.leadsTrend} />
+          <CostMetrics totalLeads={stats.totalLeads} conversions={stats.conversions} avgDealSize={stats.revenue.avgDealSize} avgLifetimeMonths={stats.avgLifetimeMonths} />
         </div>
         <div className="space-y-6">
           <SourcePieChart data={stats.leadsSourceBreakdown} title="Leads by Source" />
