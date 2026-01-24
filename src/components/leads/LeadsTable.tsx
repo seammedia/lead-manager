@@ -53,7 +53,7 @@ type SortDirection = "asc" | "desc";
 
 const ITEMS_PER_PAGE = 10;
 
-const owners = ["Heath Maes"];
+const owners = ["Heath", "clawdcode"];
 
 const sourceConfig: Record<LeadSource, { label: string; className: string }> = {
   website: { label: "Website", className: "bg-blue-100 text-blue-700" },

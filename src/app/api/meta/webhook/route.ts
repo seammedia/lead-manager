@@ -143,7 +143,7 @@ async function processNewLead(leadId: string, pageId: string) {
       company: parsedLead.company || "Unknown",
       stage: "contacted_1",
       source: "meta_ads",
-      owner: "Heath Maes", // Default owner
+      owner: "Heath", // Default owner
       conversion_probability: 30, // Default for ad leads
       notes: `Lead from Meta Ads${parsedLead.campaign_name ? ` - Campaign: ${parsedLead.campaign_name}` : ""}${parsedLead.ad_name ? ` - Ad: ${parsedLead.ad_name}` : ""}`,
       meta_lead_id: leadId,
@@ -219,7 +219,7 @@ async function processInstagramMessage(messagingEvent: InstagramMessage, igAccou
         phone: null,
         stage: "contacted_1",
         source: "instagram",
-        owner: "Heath Maes",
+        owner: "Heath",
         conversion_probability: 25,
         notes: `Lead from Instagram DM. First message: "${messageText.substring(0, 200)}"`,
         instagram_id: senderId,
@@ -294,7 +294,7 @@ async function processMessengerMessage(messagingEvent: InstagramMessage, pageId:
         phone: null,
         stage: "contacted_1",
         source: "other", // Could add "messenger" as a source
-        owner: "Heath Maes",
+        owner: "Heath",
         conversion_probability: 25,
         notes: `Lead from Facebook Messenger. First message: "${messageText.substring(0, 200)}"`,
         facebook_id: senderId,

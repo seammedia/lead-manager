@@ -74,7 +74,7 @@ export async function POST() {
               company: parsedLead.company || "Unknown",
               stage: "contacted_1",
               source: "meta_ads",
-              owner: "Heath Maes",
+              owner: "Heath",
               conversion_probability: 30,
               notes: `Lead from Meta Ads - Form: ${form.name}${
                 parsedLead.campaign_name

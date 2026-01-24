@@ -56,10 +56,12 @@ export function LeadModal({ isOpen, onClose, onSave, onEmail, onUpdateLastContac
     phone: "",
     stage: "contacted_1" as LeadStage,
     source: "website" as LeadSource,
-    owner: "Heath Maes",
+    owner: "Heath",
     conversion_probability: 20,
     revenue: "" as string | number,
     next_action: "",
+    sign_on_date: "",
+    exit_date: "",
     notes: "",
   });
 
@@ -80,6 +82,8 @@ export function LeadModal({ isOpen, onClose, onSave, onEmail, onUpdateLastContac
         conversion_probability: lead.conversion_probability,
         revenue: lead.revenue || "",
         next_action: lead.next_action || "",
+        sign_on_date: lead.sign_on_date || "",
+        exit_date: lead.exit_date || "",
         notes: lead.notes || "",
       });
 
@@ -93,10 +97,12 @@ export function LeadModal({ isOpen, onClose, onSave, onEmail, onUpdateLastContac
         phone: "",
         stage: "contacted_1",
         source: "website",
-        owner: "Heath Maes",
+        owner: "Heath",
         conversion_probability: 20,
         revenue: "",
         next_action: "",
+        sign_on_date: "",
+        exit_date: "",
         notes: "",
       });
       setEmails([]);
@@ -173,6 +179,8 @@ export function LeadModal({ isOpen, onClose, onSave, onEmail, onUpdateLastContac
       ...formData,
       revenue: formData.revenue ? Number(formData.revenue) : null,
       next_action: formData.next_action || null,
+      sign_on_date: formData.sign_on_date || null,
+      exit_date: formData.exit_date || null,
       id: lead?.id,
     });
     onClose();
@@ -342,6 +350,31 @@ export function LeadModal({ isOpen, onClose, onSave, onEmail, onUpdateLastContac
                 onChange={(e) => setFormData({ ...formData, next_action: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
               />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Sign On Date
+                </label>
+                <input
+                  type="date"
+                  value={formData.sign_on_date}
+                  onChange={(e) => setFormData({ ...formData, sign_on_date: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Exit Date
+                </label>
+                <input
+                  type="date"
+                  value={formData.exit_date}
+                  onChange={(e) => setFormData({ ...formData, exit_date: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                />
+              </div>
             </div>
 
             <div>

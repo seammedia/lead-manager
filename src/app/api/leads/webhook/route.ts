@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
       phone: body.phone || null,
       stage: "contacted_1" as const,
       source: "meta_ads" as const,
-      owner: "Heath Maes",
+      owner: "Heath",
       conversion_probability: 20,
       revenue: null,
       notes: body.notes || null,
@@ -129,7 +129,7 @@ export async function GET() {
     defaults: {
       stage: "contacted_1",
       source: "meta_ads",
-      owner: "Heath Maes",
+      owner: "Heath",
       last_contacted: "current timestamp"
     }
   });
