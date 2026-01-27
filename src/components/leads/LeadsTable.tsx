@@ -63,6 +63,7 @@ const sourceConfig: Record<LeadSource, { label: string; className: string }> = {
   instagram: { label: "Instagram Messages", className: "bg-pink-100 text-pink-700" },
   meta_ads: { label: "Meta Ads", className: "bg-indigo-100 text-indigo-700" },
   google_ads: { label: "Google Ads", className: "bg-yellow-100 text-yellow-700" },
+  prospecting: { label: "Prospecting", className: "bg-orange-100 text-orange-700" },
   other: { label: "Other", className: "bg-gray-100 text-gray-700" },
 };
 

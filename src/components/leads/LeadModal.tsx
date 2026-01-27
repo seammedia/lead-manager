@@ -45,6 +45,7 @@ const sources: { value: LeadSource; label: string }[] = [
   { value: "instagram", label: "Instagram Messages" },
   { value: "meta_ads", label: "Meta Ads" },
   { value: "google_ads", label: "Google Ads" },
+  { value: "prospecting", label: "Prospecting" },
   { value: "other", label: "Other" },
 ];
 
