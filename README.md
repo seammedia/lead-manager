@@ -925,6 +925,16 @@ const tableLeads = leads.filter(l => {
 
 ## Recent Updates Log
 
+### February 2026
+
+12. **Stats Date Range Filtering Fix**
+    - Fixed bug where `currentPeriodLeads` only filtered by `startDate` without `endDate`
+    - Added `endDate` variable for all period types (this_month, last_month, custom, numeric)
+    - Updated lead filtering: `createdAt >= startDate && createdAt <= endDate`
+    - Fixed email count query to respect `endDate` boundary
+    - Fixed variable shadowing (`endDate` → `customerEndDate` in LTV calculation)
+    - This fixes ROAS/stats not displaying correctly when selecting date ranges at month boundaries
+
 ### December 2024
 
 1. **Instagram DM Integration**
@@ -1089,6 +1099,59 @@ The stats page displays four cost/return metrics in a 2x2 grid:
 - Stats page: `src/app/stats/page.tsx`
 - Cost metrics component: `src/components/stats/CostMetrics.tsx`
 - Stats API (includes avgLifetimeMonths): `src/app/api/stats/route.ts`
+
+### Why ROAS Shows "-"
+
+ROAS will display "-" if any of these conditions are true:
+
+1. **Cost Per Lead not entered**: You must click the CPL box and enter a value
+2. **No conversions**: The `conversions` count is 0
+3. **No revenue on converted leads**: `avgDealSize` is 0 because no converted leads have revenue set
+4. **No sign_on_date for LTV ROAS**: `avgLifetimeMonths` is 0 because converted leads don't have sign_on_date
+
+**Troubleshooting checklist:**
+- [ ] Enter a Cost Per Lead value (click the "-" to edit)
+- [ ] Ensure at least one lead is in "converted" stage
+- [ ] Ensure converted leads have a revenue value set
+- [ ] For LTV ROAS: Ensure converted leads have a sign_on_date
+
+## Stats API Date Filtering
+
+The stats API (`/api/stats/route.ts`) filters data based on the selected date range:
+
+### Date Range Variables
+
+| Period Type | startDate | endDate |
+|-------------|-----------|---------|
+| `this_month` | First day of current month | Now |
+| `last_month` | First day of previous month | Last day of previous month (23:59:59.999) |
+| `custom` | Custom start date | Custom end date (23:59:59.999) |
+| `7`, `14`, `30` | N days ago | Now |
+
+### What Gets Filtered by Date Range
+
+| Metric | Filtered? | Notes |
+|--------|-----------|-------|
+| `totalLeads` | Yes | Leads created within date range |
+| `emailsSent` | Yes | Emails sent within date range |
+| `conversions` | No | All-time conversions (for accurate ROAS) |
+| `avgDealSize` | No | All-time average (for accurate ROAS) |
+| `avgLifetimeMonths` | No | All-time average customer lifetime |
+| `leadsTrend` | Yes | Daily/weekly breakdown within range |
+
+### Important Implementation Notes
+
+**February 2026 Bug Fix**: The original implementation only used `startDate` for filtering `currentPeriodLeads`, without an upper bound. This caused issues when:
+- Selecting "Last 30 days" at the start of a new month
+- Using custom date ranges that span month boundaries
+
+**Fix applied**: Added `endDate` variable and updated the filter:
+```javascript
+const currentPeriodLeads = leads.filter((lead) => {
+  const createdAt = new Date(lead.created_at);
+  return createdAt >= startDate && createdAt <= endDate;
+});
+```
 
 ## License
 
