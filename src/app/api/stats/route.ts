@@ -58,27 +58,32 @@ export async function GET(request: NextRequest) {
 
     const now = new Date();
     let startDate: Date;
+    let endDate: Date;
     let previousStartDate: Date;
     let days: number;
 
     // Calculate date ranges based on period type
     if (period === "this_month") {
       startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      endDate = now;
       previousStartDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
       days = Math.ceil((now.getTime() - startDate.getTime()) / (24 * 60 * 60 * 1000));
     } else if (period === "last_month") {
       startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-      const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+      endDate = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
       previousStartDate = new Date(now.getFullYear(), now.getMonth() - 2, 1);
-      days = endOfLastMonth.getDate();
+      days = endDate.getDate();
     } else if (period === "custom" && customStart && customEnd) {
       startDate = new Date(customStart);
-      const endDate = new Date(customEnd);
+      endDate = new Date(customEnd);
+      // Set endDate to end of day to include the full day
+      endDate.setHours(23, 59, 59, 999);
       days = Math.ceil((endDate.getTime() - startDate.getTime()) / (24 * 60 * 60 * 1000));
       previousStartDate = new Date(startDate.getTime() - days * 24 * 60 * 60 * 1000);
     } else {
       days = parseInt(period, 10) || 30;
       startDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+      endDate = now;
       previousStartDate = new Date(startDate.getTime() - days * 24 * 60 * 60 * 1000);
     }
 
@@ -99,7 +104,10 @@ export async function GET(request: NextRequest) {
 
     // Filter by date range
     const currentPeriodLeads = leads.filter(
-      (lead) => new Date(lead.created_at) >= startDate
+      (lead) => {
+        const createdAt = new Date(lead.created_at);
+        return createdAt >= startDate && createdAt <= endDate;
+      }
     );
     const previousPeriodLeads = leads.filter(
       (lead) =>
@@ -132,7 +140,8 @@ export async function GET(request: NextRequest) {
     const { count: emailCount } = await supabase
       .from("email_logs")
       .select("*", { count: "exact", head: true })
-      .gte("sent_at", startDate.toISOString());
+      .gte("sent_at", startDate.toISOString())
+      .lte("sent_at", endDate.toISOString());
 
     const { count: previousEmailCount } = await supabase
       .from("email_logs")
@@ -214,8 +223,8 @@ export async function GET(request: NextRequest) {
     if (convertedWithSignOn.length > 0) {
       const totalMonths = convertedWithSignOn.reduce((sum, lead) => {
         const signOnDate = new Date(lead.sign_on_date);
-        const endDate = lead.exit_date ? new Date(lead.exit_date) : now;
-        const diffMs = endDate.getTime() - signOnDate.getTime();
+        const customerEndDate = lead.exit_date ? new Date(lead.exit_date) : now;
+        const diffMs = customerEndDate.getTime() - signOnDate.getTime();
         const diffDays = diffMs / (1000 * 60 * 60 * 24);
         const months = Math.max(diffDays / 30, 0); // At least 0 months
         return sum + months;
