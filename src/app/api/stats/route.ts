@@ -319,6 +319,7 @@ export async function GET(request: NextRequest) {
         bySource: revenueSourceBreakdown,
       },
       avgLifetimeMonths: Math.round(avgLifetimeMonths * 10) / 10, // Round to 1 decimal
+      allTimeLeadCount: leads.length,
     });
   } catch (error) {
     console.error("Error:", error);
