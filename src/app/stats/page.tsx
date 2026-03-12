@@ -33,6 +33,9 @@ interface StatsApiResponse {
   };
   avgLifetimeMonths: number;
   allTimeLeadCount: number;
+  periodConversionCount: number;
+  periodConversionRevenue: number;
+  periodLtvRevenue: number;
 }
 
 export default function StatsPage() {
@@ -131,7 +134,7 @@ export default function StatsPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
         <div className="lg:col-span-2 space-y-4">
           <LeadGrowthChart data={stats.leadsTrend} />
-          <CostMetrics totalLeads={stats.allTimeLeadCount} conversions={stats.conversions} avgDealSize={stats.revenue.avgDealSize} avgLifetimeMonths={stats.avgLifetimeMonths} />
+          <CostMetrics periodLeads={stats.totalLeads} periodConversionCount={stats.periodConversionCount} periodConversionRevenue={stats.periodConversionRevenue} periodLtvRevenue={stats.periodLtvRevenue} />
         </div>
         <div className="space-y-6">
           <SourcePieChart data={stats.leadsSourceBreakdown} title="Leads by Source" />

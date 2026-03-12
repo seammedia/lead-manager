@@ -216,6 +216,28 @@ export async function GET(request: NextRequest) {
       ? totalRevenue / convertedWithRevenue.length
       : 0;
 
+    // Period-scoped conversions using converted_at (when the deal actually closed)
+    const periodConversions = leads.filter((l) => {
+      if (l.stage !== "converted" || !l.converted_at) return false;
+      const convertedAt = new Date(l.converted_at);
+      return convertedAt >= startDate && convertedAt <= endDate;
+    });
+    const periodConversionCount = periodConversions.length;
+    const periodConversionRevenue = periodConversions
+      .filter((l) => l.revenue)
+      .reduce((sum, l) => sum + (l.revenue || 0), 0);
+
+    // LTV revenue: for each converted lead in period, revenue × months active
+    const periodLtvRevenue = periodConversions
+      .filter((l) => l.revenue && l.sign_on_date)
+      .reduce((sum, lead) => {
+        const signOnDate = new Date(lead.sign_on_date);
+        const customerEndDate = lead.exit_date ? new Date(lead.exit_date) : now;
+        const diffMs = customerEndDate.getTime() - signOnDate.getTime();
+        const months = Math.max(diffMs / (1000 * 60 * 60 * 24 * 30), 1); // At least 1 month
+        return sum + (lead.revenue * months);
+      }, 0);
+
     // Calculate average customer lifetime in months for LTV ROAS
     const convertedWithSignOn = leads.filter((l) => l.stage === "converted" && l.sign_on_date);
     let avgLifetimeMonths = 0;
@@ -320,6 +342,9 @@ export async function GET(request: NextRequest) {
       },
       avgLifetimeMonths: Math.round(avgLifetimeMonths * 10) / 10, // Round to 1 decimal
       allTimeLeadCount: leads.length,
+      periodConversionCount,
+      periodConversionRevenue: Math.round(periodConversionRevenue * 100) / 100,
+      periodLtvRevenue: Math.round(periodLtvRevenue * 100) / 100,
     });
   } catch (error) {
     console.error("Error:", error);
