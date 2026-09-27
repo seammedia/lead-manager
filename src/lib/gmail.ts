@@ -194,20 +194,19 @@ export async function sendEmail(
   refreshToken: string | undefined,
   to: string,
   subject: string,
-  body: string
+  body: string,
+  cc?: string
 ): Promise<string> {
   const gmail = getGmailClient(accessToken, refreshToken);
 
   // Convert plain text body to HTML
   const htmlBody = textToHtml(body);
 
-  const message = [
-    `To: ${to}`,
-    `Subject: ${subject}`,
-    "Content-Type: text/html; charset=utf-8",
-    "",
-    htmlBody,
-  ].join("\n");
+  const headers = [`To: ${to}`];
+  if (cc) headers.push(`Cc: ${cc}`);
+  headers.push(`Subject: ${subject}`, "Content-Type: text/html; charset=utf-8", "", htmlBody);
+
+  const message = headers.join("\n");
 
   const encodedMessage = Buffer.from(message)
     .toString("base64")
@@ -232,22 +231,26 @@ export async function replyToEmail(
   messageId: string,
   to: string,
   subject: string,
-  body: string
+  body: string,
+  cc?: string
 ): Promise<string> {
   const gmail = getGmailClient(accessToken, refreshToken);
 
   // Convert plain text body to HTML
   const htmlBody = textToHtml(body);
 
-  const message = [
-    `To: ${to}`,
+  const headers = [`To: ${to}`];
+  if (cc) headers.push(`Cc: ${cc}`);
+  headers.push(
     `Subject: Re: ${subject}`,
     `In-Reply-To: ${messageId}`,
     `References: ${messageId}`,
     "Content-Type: text/html; charset=utf-8",
     "",
-    htmlBody,
-  ].join("\n");
+    htmlBody
+  );
+
+  const message = headers.join("\n");
 
   const encodedMessage = Buffer.from(message)
     .toString("base64")

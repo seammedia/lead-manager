@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { to, subject, content, threadId, messageId } = body;
+    const { to, subject, content, cc, threadId, messageId } = body;
 
     if (!to || !subject || !content) {
       return NextResponse.json(
@@ -61,7 +61,8 @@ export async function POST(request: NextRequest) {
         messageId,
         to,
         subject,
-        content
+        content,
+        cc
       );
     } else {
       // This is a new email
@@ -70,7 +71,8 @@ export async function POST(request: NextRequest) {
         tokens.refresh_token,
         to,
         subject,
-        content
+        content,
+        cc
       );
     }
 
