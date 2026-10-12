@@ -26,11 +26,13 @@ export async function GET(request: NextRequest) {
     // 1. Are in "contacted_1" stage
     // 2. Were last contacted more than 24 hours ago
     // 3. Are not archived
+    // 4. Didn't get an instant personal email (those leads skip this generic follow-up)
     const { data: leads, error: leadsError } = await supabase
       .from("leads")
       .select("*")
       .eq("stage", "contacted_1")
       .eq("archived", false)
+      .eq("instant_flow", false)
       .lt("last_contacted", oneDayAgo.toISOString())
       .not("last_contacted", "is", null);
 

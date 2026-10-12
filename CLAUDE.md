@@ -130,3 +130,27 @@ Supabase PostgreSQL. Key tables:
 - `email_logs` - Email history
 - `settings` - Gmail tokens, app settings
 - `business_context` - AI context for email drafting
+
+## Instant lead emails (13 October 2026)
+
+A new Meta lead gets a personal email, drafted (or sent) within minutes, built from checks on their actual business instead of the generic Zapier email.
+
+**Flow:** Zapier POSTs the lead to `/api/leads/instant` (header `x-api-key: LEAD_INTAKE_KEY`; `?dry_run=1` returns the facts and email without saving anything). The route saves the lead and a `lead_enrichments` row, replies 202, then `processEnrichment` (`src/lib/instant/run.ts`) runs:
+1. Checks (`checks.ts`, DataForSEO live endpoints, about US$0.02 a lead): Google profile via a Maps search for the name (plus the website title's brand), Maps rank for their category searched from their suburb, the website (title, H1, tap-to-call, platform, Google Ads tag and Meta pixel), Google Ads via the Ads Transparency Center, Instagram via a `site:instagram.com` search, and mobile speed for website enquiries.
+2. Live prices from /marketing-packages (`packages.ts`). If the page can't be read, no prices are quoted.
+3. Claude (`compose.ts`, default `claude-opus-5-5`) writes the email from the facts only; `validate.ts` enforces Heath's rules (no em dashes, Australian spelling, first person, live prices only, packages link, "Thanks,\nHeath", no guarantee or contract talk). One retry on failure.
+4. Delivery (`deliver.ts`): Gmail draft, or a send in auto mode when confidence is high, fit is good, validation passed and the business identity is confirmed. Heath's Gmail signature is added from send-as settings (API messages don't get it automatically). Alert to Heath by text when the Twilio env is set, otherwise an email to contact+leads@.
+5. `/api/cron/instant-replies` (Vercel cron, every 10 minutes): marks drafts Heath has sent, and when a lead replies (out-of-office ignored) adds them to the pipeline dashboard as Contacted (`pipeline.ts`), moves the lead to `interested` and alerts Heath.
+
+**Mode** lives in `settings.instant_email_mode`: `draft` (default), `auto` or `off`; change it with SQL, no redeploy. Leads handled by this flow have `leads.instant_flow = true` and skip the generic 24-hour follow-up (`/api/cron/follow-up`).
+
+**Env:** `LEAD_INTAKE_KEY`, `DATAFORSEO_AUTH` (base64 login:password), `ANTHROPIC_API_KEY` (Seam's key from marketing-audit-tool; never the alc-review-hub key, which is the employer's), `PIPELINE_SUPABASE_URL`, `PIPELINE_SUPABASE_ANON_KEY`, `PIPELINE_ACCESS_KEY`; optional `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `OWNER_ALERT_FROM`, `OWNER_ALERT_TO`, `INSTANT_EMAIL_MODEL`, `INSTANT_ALERT_EMAIL`. The AI receptionist's Twilio values are marked sensitive in Vercel and can't be copied across.
+
+**Learnings from testing on real leads (Legion 13, Pat's Gems):**
+- DataForSEO `my_business_info` returned "No Search Results" for "Legion13 Perth"; a Maps search found it straight away.
+- Maps rank needs a real location: a country-wide location with the suburb in the keyword returns nothing. Use `location_name` "Suburb,State,Australia" (about 2,900 AU suburbs, then the postcode). Searching from the business's own coordinates flatters it (#1 vs #3 from the suburb), and positions move between searches minutes apart, so a top-3 result is stated as "in the top 3".
+- One shared word isn't a match ("Should Be Digging" is not "Digging Downunder Excavations"). The website title's brand found the right profile (Pat's Gems), and a website-domain match beats a name match.
+- A page fetch misses tags loaded by scripts (legion13.com.au loads Google Analytics that way), so "no Meta pixel / no Ads tag" is only claimed when the site's GTM or GT container was read.
+- Instagram: a handle linked from their website wins; people often type their Instagram display name into the form's name field.
+- Claude Opus 5.5 rejects a forced `tool_choice`; use `auto` and ask for the tool call in the system prompt.
+- The model expanded "KB" to kettlebell (it's kickboxing), so the prompt forbids guessing abbreviations.

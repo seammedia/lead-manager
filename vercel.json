@@ -1,0 +1,5 @@
+{
+  "crons": [
+    { "path": "/api/cron/instant-replies", "schedule": "*/10 * * * *" }
+  ]
+}

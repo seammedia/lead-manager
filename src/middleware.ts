@@ -12,6 +12,9 @@ const PUBLIC_ROUTES = [
   "/api/meta/callback",
   "/api/cron/follow-up",
   "/api/gmail/callback",
+  // Instant lead emails: protected by x-api-key (LEAD_INTAKE_KEY) and CRON_SECRET instead
+  "/api/leads/instant",
+  "/api/cron/instant-replies",
 ];
 
 export function middleware(request: NextRequest) {
