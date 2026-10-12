@@ -11,6 +11,7 @@ import { autoSendBlockers, prepareEmail, processEnrichment } from "@/lib/instant
 //   (full_name / first_name, email, phone_number, company_name, website, the "what would you most
 //   like help with" and "trade or service" answers, ad_name, adset_name, campaign_name, platform).
 // Query: ?dry_run=1 runs the checks and writes the email but saves, drafts and texts nothing.
+//        ?previously_emailed=1 writes it as a follow-up (while the Zap still sends its standard email).
 //
 // Responds 202 straight away; the checks, email and text to Heath run after the response.
 
@@ -41,6 +42,9 @@ export async function POST(request: NextRequest) {
   }
 
   const form = normaliseLeadPayload(body);
+  // While Zapier still sends its standard email first, the Zap URL carries ?previously_emailed=1 so
+  // this email reads as a follow-up (a URL flag lets Zapier's Data box stay empty and send every field)
+  if (request.nextUrl.searchParams.get("previously_emailed") === "1") form.previouslyEmailed = true;
   if (!EMAIL_RE.test(form.email)) {
     return NextResponse.json({ error: "A valid email is required" }, { status: 400 });
   }
