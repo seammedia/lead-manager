@@ -154,3 +154,5 @@ A new Meta lead gets a personal email, drafted (or sent) within minutes, built f
 - Instagram: a handle linked from their website wins; people often type their Instagram display name into the form's name field.
 - Claude Opus 5.5 rejects a forced `tool_choice`; use `auto` and ask for the tool call in the system prompt.
 - The model expanded "KB" to kettlebell (it's kickboxing), so the prompt forbids guessing abbreviations.
+
+**Australian and local (Heath, 15 Oct 2026).** Every instant email says once that Heath does the work himself here in Australia, nothing offshored (a big selling point on a booked sales call). When the Google profile's region is Victoria (`checks.gbp.region`, passed to `composeEmail` as `leadState`), it also says he's local, based on the Mornington Peninsula; otherwise it must never call him local. `validate.ts` enforces both, and the fallback email carries the Australia line too.

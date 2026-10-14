@@ -17,7 +17,7 @@ const US_SPELLINGS = /\b(optimiz\w*|organiz\w*|prioritiz\w*|customiz\w*|recogniz
 const NOT_FIRST_PERSON = /\b(we|we're|we've|we'll|our|ours|us|my team|our team|agency)\b/gi;
 const OFF_LIMITS = /\b(guarantee\w*|discount\w*|free trial|trial period|lock-?in|contract)\b/gi;
 
-export function validateEmail(email: ComposedEmail, facts: Fact[], packages: LivePackage[] | null, form: InstantLeadForm): ValidationResult {
+export function validateEmail(email: ComposedEmail, facts: Fact[], packages: LivePackage[] | null, form: InstantLeadForm, leadInVictoria = false): ValidationResult {
   const errors: string[] = [];
   const body = (email.body || "").replace(/\r\n/g, "\n").trim();
   const subject = (email.subject || "").trim();
@@ -33,6 +33,11 @@ export function validateEmail(email: ComposedEmail, facts: Fact[], packages: Liv
   if (/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u.test(all)) errors.push("Contains emoji.");
 
   if (!body.endsWith("Thanks,\nHeath")) errors.push('Must end with exactly "Thanks," then "Heath" on the next line.');
+  // Heath, 15 Oct 2026: always say the work is done by him here in Australia; "local" only for Victorian leads
+  if (leadInVictoria) {
+    if (!/\blocal\b/i.test(body) || !/Mornington Peninsula/.test(body)) errors.push('The lead is in Victoria: say I\'m local, based on the Mornington Peninsula, and that I do all the work myself, nothing offshored.');
+  } else if (!/\bAustralia\b/.test(body)) errors.push("Say once that I do the work myself here in Australia, nothing offshored.");
+  if (!leadInVictoria && /\b(I'm|I am) local\b|\blocal to you\b/i.test(body)) errors.push("Don't call me local: the lead isn't in Victoria (or their state is unknown). Keep the Australia line only.");
   if (!body.split("\n").some((l) => l.trim() === PACKAGES_URL)) errors.push(`The packages link ${PACKAGES_URL} must be on its own line.`);
 
   const us = [...new Set((all.match(US_SPELLINGS) || []).map((w) => w.toLowerCase()))];

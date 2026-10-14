@@ -37,6 +37,7 @@ The email, in this order:
 2. One line thanking them for reaching out about what they asked for, naming their business. If previously_emailed is true, follow up on their enquiry instead of thanking them as if it's the first contact.
 3. One or two specific findings from the facts that relate to what they asked for. Gaps are the most useful. A finding must be something they may not already know; never present their own handle, website or business details back to them as a finding. Two short bullets ("- ") are fine. Then one genuine positive if a positive fact exists.
 4. How I'd help: recommend the plan named in recommended_plan_hint, using its exact name and weekly price as given in the packages data (for example "$140 a week + GST"), and name two or three of its real inclusions that fit their need. For a social media enquiry, mention Growth as the next step if they also want Meta ads run for them, with its exact price. Never mention any price, discount, trial, guarantee or contract term that isn't in the packages data.
+   In the same paragraph, say once, in a short clause, that I do the work myself here in Australia and nothing is offshored (Heath, 15 Oct 2026: being Australian-based, not offshore, is a big selling point). If where.lead_in_victoria is true, that clause must also say I'm local, for example "I'm local, based on the Mornington Peninsula, and I do all the work myself, nothing is offshored." If it's false or unknown, never call me local; use "I do the work myself here in Australia, nothing is offshored."
 5. The packages link on its own line: ${PACKAGES_URL}
 6. One easy question that invites a reply (their goals, or confirming something). Don't ask for a call.
 7. Sign off with exactly two lines: "Thanks," then "Heath".
@@ -45,6 +46,7 @@ Special cases:
 - If an identity fact says the form's business name and website don't match, ask them to confirm which business it is rather than making claims about the website.
 - If the lead looks like an employee of a large organisation, a job seeker, a consumer or an overseas business, set fit to "poor" and write a short, polite note asking what they're after, with no findings and no prices.
 - If there are no usable facts, thank them, say what you'll look at, link the packages and ask for their website or Instagram handle.
+- In every case, including the two above, keep the one line saying I do the work myself here in Australia, nothing offshored.
 
 Style: Australian spelling (optimise, organise, colour, centre, enquiry). Never use em dashes or en dashes; use commas or full stops. Plain text only: no markdown, bold, headings or emoji. Each paragraph is a single line with one blank line between paragraphs. Friendly and direct, short sentences, no hype, no exclamation marks. Between 80 and 170 words before the sign-off.
 
@@ -97,7 +99,8 @@ async function callClaude(model: string, messages: Array<{ role: "user" | "assis
   return { email: block.input as ComposedEmail, toolUseId: block.id as string, content: data.content, usage: data.usage };
 }
 
-export async function composeEmail(form: InstantLeadForm, facts: Fact[], packages: LivePackage[] | null, today: string): Promise<ComposeResult> {
+export async function composeEmail(form: InstantLeadForm, facts: Fact[], packages: LivePackage[] | null, today: string, leadState: string | null = null): Promise<ComposeResult> {
+  const inVictoria = leadState === "Victoria";
   const model = process.env.INSTANT_EMAIL_MODEL || "claude-opus-5-5";
   const input = {
     today,
@@ -111,6 +114,7 @@ export async function composeEmail(form: InstantLeadForm, facts: Fact[], package
       website: form.website,
       came_from: form.platform === "ig" ? "Instagram ad" : form.platform === "fb" ? "Facebook ad" : "Meta ad",
     },
+    where: { heath: "Mount Eliza, Mornington Peninsula, Victoria", lead_state: leadState ?? "unknown", lead_in_victoria: inVictoria },
     recommended_plan_hint: recommendedPlanHint(form),
     packages: packages ?? "Prices unavailable right now: don't mention any price, just link the packages page.",
     facts,
@@ -121,7 +125,7 @@ export async function composeEmail(form: InstantLeadForm, facts: Fact[], package
   let attempt = await callClaude(model, messages);
   usage.input_tokens += attempt.usage?.input_tokens ?? 0;
   usage.output_tokens += attempt.usage?.output_tokens ?? 0;
-  let validation = validateEmail(attempt.email, facts, packages, form);
+  let validation = validateEmail(attempt.email, facts, packages, form, inVictoria);
   let attempts = 1;
   if (!validation.ok) {
     messages.push({ role: "assistant", content: attempt.content });
@@ -132,7 +136,7 @@ export async function composeEmail(form: InstantLeadForm, facts: Fact[], package
     attempt = await callClaude(model, messages);
     usage.input_tokens += attempt.usage?.input_tokens ?? 0;
     usage.output_tokens += attempt.usage?.output_tokens ?? 0;
-    validation = validateEmail(attempt.email, facts, packages, form);
+    validation = validateEmail(attempt.email, facts, packages, form, inVictoria);
     attempts = 2;
   }
   return { email: attempt.email, validation, attempts, model, usage };

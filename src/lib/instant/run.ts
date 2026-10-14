@@ -34,7 +34,7 @@ export async function prepareEmail(form: InstantLeadForm): Promise<PreparedEmail
     runChecks(form),
     fetchLivePackages().then((p) => ({ packages: p.packages, error: null as string | null })).catch((e) => ({ packages: null, error: e instanceof Error ? e.message : String(e) })),
   ]);
-  const composed = await composeEmail(form, checks.facts, pkg.packages, melbourneToday());
+  const composed = await composeEmail(form, checks.facts, pkg.packages, melbourneToday(), checks.checks.gbp?.region ?? null);
   return { checks, packages: pkg.packages, packagesError: pkg.error, composed, ms: Date.now() - start };
 }
 
@@ -71,7 +71,7 @@ export function fallbackEmail(form: InstantLeadForm) {
       "",
       `Thanks for reaching out about ${what} for ${business}.`,
       "",
-      "I'm having a look at your Google profile, website and socials now, and I'll send through the first few things I'd focus on.",
+      "I'm having a look at your Google profile, website and socials now, and I'll send through the first few things I'd focus on. I do all the work myself, here in Australia.",
       "",
       "In the meantime, here's what's included in each plan:",
       PACKAGES_URL,
