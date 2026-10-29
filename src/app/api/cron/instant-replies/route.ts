@@ -4,11 +4,13 @@ import { getGmail, alertHeath } from "@/lib/instant/deliver";
 import type { Fact } from "@/lib/instant/checks";
 import type { InstantLeadForm } from "@/lib/instant/form";
 import { addRepliedLead } from "@/lib/instant/pipeline";
+import { isOptOut, plainText, replyText, type Part } from "@/lib/instant/replies";
 
 // Vercel Cron, every 10 minutes (vercel.json). For instant lead emails from the last 21 days:
 // 1. Drafts Heath has sent: mark sent and update the lead's last_contacted.
 // 2. Leads who replied: add them to the pipeline dashboard (warm leads only), move the lead to
-//    "interested" and text Heath.
+//    "interested" and text Heath. A reply asking to be removed is an opt-out, not a warm lead:
+//    archive the lead as not interested, keep it off the pipeline and tell Heath.
 
 export const maxDuration = 120;
 
@@ -34,7 +36,7 @@ export async function GET(request: NextRequest) {
   if (!rows?.length) return NextResponse.json({ checked: 0 });
 
   const ctx = await getGmail();
-  const results = { checked: rows.length, markedSent: 0, replied: 0, errors: [] as string[] };
+  const results = { checked: rows.length, markedSent: 0, replied: 0, optedOut: 0, errors: [] as string[] };
 
   for (const row of rows) {
     const form = row.form as InstantLeadForm;
@@ -65,6 +67,19 @@ export async function GET(request: NextRequest) {
       if (!r) continue;
 
       const now = new Date().toISOString();
+      const full = await ctx.gmail.users.messages.get({ userId: "me", id: r.id!, format: "full" });
+      const said = replyText(plainText(full.data.payload as Part) || full.data.snippet || "");
+      if (isOptOut(said)) {
+        await db.from("lead_enrichments").update({ status: "opted_out", replied_at: now, error: "Reply asked to be removed (opt-out). Do not contact.", updated_at: now }).eq("id", row.id);
+        if (row.lead_id) {
+          const { data: lead } = await db.from("leads").select("notes").eq("id", row.lead_id).single();
+          await db.from("leads").update({ stage: "not_interested", archived: true, notes: `${lead?.notes ?? ""} | DO NOT CONTACT: asked ${melbourneDate()} (by reply) to be removed.`.replace(/^ \| /, ""), updated_at: now }).eq("id", row.lead_id);
+        }
+        results.optedOut++;
+        const who = form.businessCandidates?.[0] || form.company || form.name;
+        await alertHeath(`${who} (${form.email}) asked to be removed. Not added to the pipeline; lead archived as not interested. Read it and send a short confirmation: https://mail.google.com/mail/u/0/#all/${r.threadId}`).catch((err) => console.error("[instant-replies] text failed", err));
+        continue;
+      }
       const facts = ((row.facts as { facts?: Fact[] } | null)?.facts ?? []).filter((f) => f.confidence !== "low");
       const business = form.businessCandidates?.[0] || form.company || form.name;
       const contact = form.company && form.businessCandidates?.[0] !== form.company ? form.company : form.name;
