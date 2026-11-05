@@ -47,7 +47,7 @@ export function textToGmailHtml(text: string, signatureHtml: string) {
   return `<div dir="ltr">${lines.join("")}${sig}</div>`;
 }
 
-function buildMime(ctx: GmailContext, to: string, subject: string, text: string) {
+function buildMime(ctx: GmailContext, to: string, subject: string, text: string, inReplyTo?: string | null) {
   const boundary = `seam_${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`;
   const html = textToGmailHtml(text, ctx.signatureHtml);
   const textWithSig = `${text}\n\nSeam Media | 0402 642 746 | seammedia.com.au`;
@@ -56,6 +56,7 @@ function buildMime(ctx: GmailContext, to: string, subject: string, text: string)
     `From: ${ctx.from}`,
     `To: ${to}`,
     `Subject: ${encodeHeader(subject)}`,
+    ...(inReplyTo ? [`In-Reply-To: ${inReplyTo}`, `References: ${inReplyTo}`] : []),
     "MIME-Version: 1.0",
     `Content-Type: multipart/alternative; boundary="${boundary}"`,
     "",
@@ -82,6 +83,14 @@ export async function createDraft(ctx: GmailContext, to: string, subject: string
 
 export async function sendNow(ctx: GmailContext, to: string, subject: string, text: string) {
   const res = await ctx.gmail.users.messages.send({ userId: "me", requestBody: { raw: buildMime(ctx, to, subject, text) } });
+  return { messageId: res.data.id ?? null, threadId: res.data.threadId ?? null };
+}
+
+// Sends into an existing thread, as a reply to one of its messages
+export async function sendInThread(ctx: GmailContext, to: string, subject: string, text: string, threadId: string, replyToMessageId: string) {
+  const original = await ctx.gmail.users.messages.get({ userId: "me", id: replyToMessageId, format: "metadata", metadataHeaders: ["Message-ID"] });
+  const header = original.data.payload?.headers?.find((h) => h.name?.toLowerCase() === "message-id")?.value ?? null;
+  const res = await ctx.gmail.users.messages.send({ userId: "me", requestBody: { threadId, raw: buildMime(ctx, to, subject, text, header) } });
   return { messageId: res.data.id ?? null, threadId: res.data.threadId ?? null };
 }
 

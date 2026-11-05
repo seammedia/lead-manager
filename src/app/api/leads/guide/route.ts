@@ -1,14 +1,16 @@
 import { NextRequest, NextResponse, after } from "next/server";
 import { getServiceSupabase } from "@/lib/supabase";
 import { normaliseLeadPayload } from "@/lib/instant/form";
-import { guideMessages, processGuideLead } from "@/lib/instant/guide";
+import { getGmail } from "@/lib/instant/deliver";
+import { guideFollowUp, guideMessages, processGuideLead, sendGuideFollowUp } from "@/lib/instant/guide";
 
 // Lead magnet opt-in (5 November 2026)
 // POST /api/leads/guide, called by /api/guide-lead on seammedia.com.au when someone asks for the free guide.
 //
 // Header: x-api-key: LEAD_INTAKE_KEY (required)
 // Body: name, company, email, phone_number, and any utm_* values.
-// Query: ?dry_run=1 returns the email and text without saving or sending anything.
+// Query: ?dry_run=1 returns the emails and text without saving or sending anything.
+//        ?followup_test=<enrichment id> sends that row's follow-up now (test addresses only).
 //
 // Saves the lead, responds straight away, then sends the guide and alerts Heath. It uses a lead_enrichments
 // row, so /api/cron/instant-replies handles replies and opt-outs as it does for instant lead emails.
@@ -21,6 +23,16 @@ export async function POST(request: NextRequest) {
   const key = process.env.LEAD_INTAKE_KEY;
   if (!key || request.headers.get("x-api-key") !== key) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const testId = request.nextUrl.searchParams.get("followup_test");
+  if (testId) {
+    const { data: row } = await getServiceSupabase().from("lead_enrichments").select("id, form, facts, gmail_thread_id, gmail_message_id").eq("id", testId).single();
+    if (!row || !String((row.form as { email?: string }).email).includes("+guide-test@")) {
+      return NextResponse.json({ error: "Test addresses only" }, { status: 400 });
+    }
+    await sendGuideFollowUp(await getGmail(), row);
+    return NextResponse.json({ ok: true });
   }
 
   let body: Record<string, unknown>;
@@ -41,7 +53,7 @@ export async function POST(request: NextRequest) {
   };
 
   if (request.nextUrl.searchParams.get("dry_run") === "1") {
-    return NextResponse.json({ form, utm, ...guideMessages(form) });
+    return NextResponse.json({ form, utm, ...guideMessages(form), followUp: guideFollowUp(form) });
   }
 
   const supabase = getServiceSupabase();

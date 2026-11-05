@@ -3,6 +3,7 @@ import { getServiceSupabase } from "@/lib/supabase";
 import { getGmail, alertHeath } from "@/lib/instant/deliver";
 import type { Fact } from "@/lib/instant/checks";
 import type { InstantLeadForm } from "@/lib/instant/form";
+import { sendDueGuideFollowUps } from "@/lib/instant/guide";
 import { addRepliedLead } from "@/lib/instant/pipeline";
 import { classifyReply, isOptOut, plainText, replyText, type Part } from "@/lib/instant/replies";
 
@@ -12,6 +13,7 @@ import { classifyReply, isOptOut, plainText, replyText, type Part } from "@/lib/
 //    pipeline dashboard, move the lead to "interested" and text Heath. Opt-outs and replies from
 //    people who can't buy marketing (no business, after paid ad viewing, spam) are archived as not
 //    interested and kept off the pipeline. Unclear replies are flagged to Heath, not added.
+// 3. Guide leads who still haven't replied: one follow-up email (lib/instant/guide.ts).
 
 export const maxDuration = 120;
 
@@ -133,5 +135,11 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  return NextResponse.json(results);
+  // After the reply checks above, so someone who has just replied doesn't get a follow-up
+  const guideFollowUps = await sendDueGuideFollowUps(ctx).catch((err) => {
+    results.errors.push(`guide follow-ups: ${err instanceof Error ? err.message : String(err)}`);
+    return 0;
+  });
+
+  return NextResponse.json({ ...results, guideFollowUps });
 }
