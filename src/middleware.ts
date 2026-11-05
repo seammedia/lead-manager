@@ -14,6 +14,7 @@ const PUBLIC_ROUTES = [
   "/api/gmail/callback",
   // Instant lead emails: protected by x-api-key (LEAD_INTAKE_KEY) and CRON_SECRET instead
   "/api/leads/instant",
+  "/api/leads/guide",
   "/api/cron/instant-replies",
 ];
 
