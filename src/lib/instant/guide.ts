@@ -10,7 +10,7 @@ export const OFFER_URL = "https://www.seammedia.com.au/social-media-guide/thanks
 const GUIDE_SUBJECT = "Your guide: why your socials get likes but no enquiries";
 const FOLLOW_UP_AFTER_MS = 48 * 3_600_000;
 
-function firstName(form: InstantLeadForm) {
+export function firstName(form: InstantLeadForm) {
   const n = form.name.trim().split(/\s+/)[0] ?? "";
   return n && !/[|&@\d]/.test(n) ? n.charAt(0).toUpperCase() + n.slice(1) : "";
 }
@@ -39,7 +39,7 @@ export function guideMessages(form: InstantLeadForm) {
 }
 
 // Australian mobiles only: 04xx or +614xx
-function toMobile(phone: string | null) {
+export function toMobile(phone: string | null) {
   const p = (phone ?? "").replace(/[\s()-]/g, "");
   if (/^04\d{8}$/.test(p)) return `+61${p.slice(1)}`;
   if (/^\+?614\d{8}$/.test(p)) return `+${p.replace(/^\+/, "")}`;
@@ -47,7 +47,7 @@ function toMobile(phone: string | null) {
 }
 
 // Needs the same Twilio values as Heath's text alerts. Without them the lead gets the email only.
-async function textLead(to: string, body: string) {
+export async function textLead(to: string, body: string) {
   const sid = process.env.TWILIO_ACCOUNT_SID;
   const token = process.env.TWILIO_AUTH_TOKEN;
   const from = process.env.OWNER_ALERT_FROM;

@@ -7,6 +7,7 @@ import { composeEmail, type ComposeResult } from "./compose";
 import { createDraft, getGmail, sendNow, alertHeath } from "./deliver";
 import type { InstantLeadForm } from "./form";
 import { fetchLivePackages, PACKAGES_URL, type LivePackage } from "./packages";
+import { isSmartWebsiteLead, processSmartWebsiteLead } from "./smartWebsite";
 
 export type InstantMode = "draft" | "auto" | "off";
 
@@ -96,6 +97,11 @@ export async function processEnrichment(id: string) {
   const mode = await getMode();
   if (mode === "off") {
     await touch({ status: "skipped", mode });
+    return;
+  }
+  // Smart Website leads get the $99 reply, not a Foundation/Growth pitch (Heath, 8 Nov 2026)
+  if (isSmartWebsiteLead(form)) {
+    await processSmartWebsiteLead(id, { source: form.platform, campaign: form.campaignName, ad: form.adName });
     return;
   }
   await touch({ status: "checking", mode });
