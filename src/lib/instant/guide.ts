@@ -10,32 +10,71 @@ export const OFFER_URL = "https://www.seammedia.com.au/social-media-guide/thanks
 const GUIDE_SUBJECT = "Your guide: why your socials get likes but no enquiries";
 const FOLLOW_UP_AFTER_MS = 48 * 3_600_000;
 
+// Two lead magnets share this flow: the social media guide (5 Nov 2026) and the tradie website guide, which leads
+// with the Smart Website (8 Nov 2026). The follow-up cron tells them apart by the email subject.
+export type GuideKind = "social" | "website";
+export const GUIDES: Record<GuideKind, {
+  subject: string; url: string; offer: string; summary: string; label: string;
+  tip: string; rather: string; callAbout: string; followTip: string; followRather: string; followQuestion: string;
+}> = {
+  social: {
+    subject: GUIDE_SUBJECT,
+    url: GUIDE_URL,
+    offer: OFFER_URL,
+    summary: "Asked for the social media guide",
+    label: "Guide lead",
+    tip: "If you only have 10 minutes, do the profile test on page 4. It's free to fix, and it helps every post you've ever published.",
+    rather: "If you'd rather have me do this for you, here's how it works:",
+    callAbout: "what you're after",
+    followTip: "If it's still sitting in your inbox, start with the profile test on page 4. It only takes 10 minutes.",
+    followRather: "If you'd rather I took care of it, here's how I work:",
+    followQuestion: "What's the main thing you'd like more of from Facebook and Instagram at the moment?",
+  },
+  website: {
+    subject: "Your guide: stop losing jobs to missed calls and slow replies",
+    url: "https://www.seammedia.com.au/guides/tradie-website-guide.pdf",
+    offer: "https://www.seammedia.com.au/website-guide/thanks",
+    summary: "Asked for the tradie website guide",
+    label: "Website guide lead",
+    tip: "If you only have 5 minutes, do the phone test on page 4. Most of what it finds is quick to fix.",
+    rather: "If you'd rather I set it up for you, here's how the Smart Website works:",
+    callAbout: "how calls and enquiries come in at the moment",
+    followTip: "If it's still sitting in your inbox, start with the phone test on page 4. It only takes 5 minutes.",
+    followRather: "If you'd rather I set it up for you, here's how the Smart Website works:",
+    followQuestion: "What happens to your calls at the moment when you're on a job and can't pick up?",
+  },
+};
+const kindOfSubject = (subject: string | null | undefined): GuideKind => (subject === GUIDES.website.subject ? "website" : "social");
+
 export function firstName(form: InstantLeadForm) {
   const n = form.name.trim().split(/\s+/)[0] ?? "";
   return n && !/[|&@\d]/.test(n) ? n.charAt(0).toUpperCase() + n.slice(1) : "";
 }
 
-export function guideMessages(form: InstantLeadForm) {
+export function guideMessages(form: InstantLeadForm, kind: GuideKind = "social") {
+  const g = GUIDES[kind];
   const first = firstName(form);
   const business = form.company.trim();
   const email = [
     `Hi ${first || "there"},`,
     "",
     "Here's the guide you asked for:",
-    GUIDE_URL,
+    g.url,
     "",
-    "If you only have 10 minutes, do the profile test on page 4. It's free to fix, and it helps every post you've ever published.",
+    g.tip,
     "",
-    "If you'd rather have me do this for you, here's how it works:",
-    OFFER_URL,
+    g.rather,
+    g.offer,
     "",
-    `I'll give you a quick call to see what you're after${business ? ` for ${business}` : ""}. If there's a better time, or you'd rather I didn't call, just reply and let me know.`,
+    kind === "social"
+      ? `I'll give you a quick call to see what you're after${business ? ` for ${business}` : ""}. If there's a better time, or you'd rather I didn't call, just reply and let me know.`
+      : `I'll give you a quick call to ask ${g.callAbout}${business ? ` at ${business}` : ""}. If there's a better time, or you'd rather I didn't call, just reply and let me know.`,
     "",
     "Thanks,",
     "Heath",
   ].join("\n");
-  const sms = `Hi ${first || "there"}, it's Heath from Seam Media. Here's your guide: ${GUIDE_URL} I'll give you a quick call about it soon. Reply STOP to opt out.`;
-  return { subject: GUIDE_SUBJECT, email, sms };
+  const sms = `Hi ${first || "there"}, it's Heath from Seam Media. Here's your guide: ${g.url} I'll give you a quick call about it soon. Reply STOP to opt out.`;
+  return { subject: g.subject, email, sms };
 }
 
 // Australian mobiles only: 04xx or +614xx
@@ -62,7 +101,8 @@ export async function textLead(to: string, body: string) {
   return true;
 }
 
-export async function processGuideLead(id: string, utm: { source: string | null; campaign: string | null; ad: string | null }) {
+export async function processGuideLead(id: string, utm: { source: string | null; campaign: string | null; ad: string | null }, kind: GuideKind = "social") {
+  const g = GUIDES[kind];
   const db = getServiceSupabase();
   const touch = (patch: Record<string, unknown>) => db.from("lead_enrichments").update({ ...patch, updated_at: new Date().toISOString() }).eq("id", id);
   const { data: row, error } = await db.from("lead_enrichments").select("id, lead_id, form").eq("id", id).single();
@@ -70,7 +110,7 @@ export async function processGuideLead(id: string, utm: { source: string | null;
   const form = row.form as InstantLeadForm;
   const who = [form.name, form.company].filter(Boolean).join(", ");
   const callLine = `${form.phone ?? "no number"} | ${form.email}${utm.ad ? ` | Ad: ${utm.ad}` : ""}`;
-  const { subject, email, sms } = guideMessages(form);
+  const { subject, email, sms } = guideMessages(form, kind);
   const now = new Date().toISOString();
 
   try {
@@ -88,28 +128,29 @@ export async function processGuideLead(id: string, utm: { source: string | null;
     const mobile = toMobile(form.phone);
     const texted = mobile && mode === "auto" ? await textLead(mobile, sms).catch((err) => { console.error("[guide] lead text failed", err); return false; }) : false;
     const sent = mode === "auto" ? `Guide ${texted ? "emailed and texted" : "emailed"}` : "Guide email is in Drafts";
-    await alertHeath(`Guide lead, call them: ${who}. ${callLine}. ${sent}.`, ctx).catch((err) => console.error("[guide] alert failed", err));
+    await alertHeath(`${g.label}, call them: ${who}. ${callLine}. ${sent}.`, ctx).catch((err) => console.error("[guide] alert failed", err));
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("[guide] send failed", id, message);
     await touch({ status: "failed", error: message.slice(0, 1000) });
-    await alertHeath(`Guide lead, the email FAILED so send it by hand: ${who}. ${callLine}. Guide: ${GUIDE_URL}`).catch(() => null);
+    await alertHeath(`${g.label}, the email FAILED so send it by hand: ${who}. ${callLine}. Guide: ${g.url}`).catch(() => null);
   }
 }
 
-export function guideFollowUp(form: InstantLeadForm) {
+export function guideFollowUp(form: InstantLeadForm, kind: GuideKind = "social") {
+  const g = GUIDES[kind];
   const first = firstName(form);
   return [
     `Hi ${first || "there"},`,
     "",
     "Did you get a chance to look at the guide?",
     "",
-    "If it's still sitting in your inbox, start with the profile test on page 4. It only takes 10 minutes.",
+    g.followTip,
     "",
-    "If you'd rather I took care of it, here's how I work:",
-    OFFER_URL,
+    g.followRather,
+    g.offer,
     "",
-    "What's the main thing you'd like more of from Facebook and Instagram at the moment?",
+    g.followQuestion,
     "",
     "If you'd rather I didn't follow up, just reply and let me know.",
     "",
@@ -118,7 +159,7 @@ export function guideFollowUp(form: InstantLeadForm) {
   ].join("\n");
 }
 
-type GuideRow = { id: string; form: unknown; facts: unknown; gmail_thread_id: string | null; gmail_message_id: string | null };
+type GuideRow = { id: string; form: unknown; facts: unknown; gmail_thread_id: string | null; gmail_message_id: string | null; email_subject?: string | null };
 
 export async function sendGuideFollowUp(ctx: GmailContext, row: GuideRow) {
   if (!row.gmail_thread_id || !row.gmail_message_id) throw new Error("No thread to follow up in");
@@ -128,7 +169,8 @@ export async function sendGuideFollowUp(ctx: GmailContext, row: GuideRow) {
   // Marked first: a failed send is flagged rather than retried every 10 minutes
   const facts = { ...((row.facts as Record<string, unknown> | null) ?? {}), guide_followup_at: now };
   await db.from("lead_enrichments").update({ facts, updated_at: now }).eq("id", row.id);
-  await sendInThread(ctx, form.email, `Re: ${GUIDE_SUBJECT}`, guideFollowUp(form), row.gmail_thread_id, row.gmail_message_id);
+  const kind = kindOfSubject(row.email_subject);
+  await sendInThread(ctx, form.email, `Re: ${GUIDES[kind].subject}`, guideFollowUp(form, kind), row.gmail_thread_id, row.gmail_message_id);
 }
 
 function isBusinessHours() {
@@ -146,8 +188,8 @@ export async function sendDueGuideFollowUps(ctx: GmailContext) {
   const now = Date.now();
   const { data: rows } = await db
     .from("lead_enrichments")
-    .select("id, lead_id, form, facts, gmail_thread_id, gmail_message_id")
-    .eq("email_subject", GUIDE_SUBJECT)
+    .select("id, lead_id, form, facts, gmail_thread_id, gmail_message_id, email_subject")
+    .in("email_subject", [GUIDES.social.subject, GUIDES.website.subject])
     .eq("status", "sent")
     .lte("sent_at", new Date(now - FOLLOW_UP_AFTER_MS).toISOString())
     .gte("sent_at", new Date(now - 14 * 86_400_000).toISOString());

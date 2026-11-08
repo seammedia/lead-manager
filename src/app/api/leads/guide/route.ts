@@ -2,7 +2,7 @@ import { NextRequest, NextResponse, after } from "next/server";
 import { getServiceSupabase } from "@/lib/supabase";
 import { normaliseLeadPayload } from "@/lib/instant/form";
 import { getGmail } from "@/lib/instant/deliver";
-import { guideFollowUp, guideMessages, processGuideLead, sendGuideFollowUp } from "@/lib/instant/guide";
+import { GUIDES, guideFollowUp, guideMessages, processGuideLead, sendGuideFollowUp, type GuideKind } from "@/lib/instant/guide";
 import { processSmartWebsiteLead, smartWebsiteMessages } from "@/lib/instant/smartWebsite";
 
 // Lead magnet opt-in (5 November 2026)
@@ -10,7 +10,8 @@ import { processSmartWebsiteLead, smartWebsiteMessages } from "@/lib/instant/sma
 //
 // Header: x-api-key: LEAD_INTAKE_KEY (required)
 // Body: name, company, email, phone_number, and any utm_* values.
-//       offer: "smart-website" (from /smart-website, 8 Nov 2026) sends the Smart Website reply instead of the guide,
+//       offer: "smart-website" (from /smart-website, 8 Nov 2026) sends the Smart Website reply instead of the guide;
+//       offer: "website-guide" (from /website-guide) sends the tradie website guide instead of the social one,
 //       with optional trade and website.
 // Query: ?dry_run=1 returns the emails and text without saving or sending anything.
 //        ?followup_test=<enrichment id> sends that row's follow-up now (test addresses only).
@@ -30,7 +31,7 @@ export async function POST(request: NextRequest) {
 
   const testId = request.nextUrl.searchParams.get("followup_test");
   if (testId) {
-    const { data: row } = await getServiceSupabase().from("lead_enrichments").select("id, form, facts, gmail_thread_id, gmail_message_id").eq("id", testId).single();
+    const { data: row } = await getServiceSupabase().from("lead_enrichments").select("id, form, facts, gmail_thread_id, gmail_message_id, email_subject").eq("id", testId).single();
     if (!row || !String((row.form as { email?: string }).email).includes("+guide-test@")) {
       return NextResponse.json({ error: "Test addresses only" }, { status: 400 });
     }
@@ -46,6 +47,8 @@ export async function POST(request: NextRequest) {
   }
 
   const smart = body.offer === "smart-website";
+  // offer "website-guide" comes from /website-guide (8 Nov 2026): the tradie website guide, leading with the Smart Website
+  const kind: GuideKind = body.offer === "website-guide" ? "website" : "social";
   const form = normaliseLeadPayload(body);
   if (!EMAIL_RE.test(form.email)) {
     return NextResponse.json({ error: "A valid email is required" }, { status: 400 });
@@ -57,11 +60,11 @@ export async function POST(request: NextRequest) {
   };
 
   if (request.nextUrl.searchParams.get("dry_run") === "1") {
-    return NextResponse.json(smart ? { form, utm, ...smartWebsiteMessages(form) } : { form, utm, ...guideMessages(form), followUp: guideFollowUp(form) });
+    return NextResponse.json(smart ? { form, utm, ...smartWebsiteMessages(form) } : { form, utm, kind, ...guideMessages(form, kind), followUp: guideFollowUp(form, kind) });
   }
 
   const supabase = getServiceSupabase();
-  const summary = [smart ? "Asked about the Smart Website ($99 a week)" : "Asked for the social media guide", utm.campaign && `Campaign: ${utm.campaign}`, utm.ad && `Ad: ${utm.ad}`].filter(Boolean).join(" | ");
+  const summary = [smart ? "Asked about the Smart Website ($99 a week)" : GUIDES[kind].summary, utm.campaign && `Campaign: ${utm.campaign}`, utm.ad && `Ad: ${utm.ad}`].filter(Boolean).join(" | ");
 
   const { data: existing } = await supabase.from("leads").select("id, notes").eq("email", form.email).order("created_at", { ascending: false }).limit(1);
   let leadId = existing?.[0]?.id as string | undefined;
@@ -108,7 +111,7 @@ export async function POST(request: NextRequest) {
 
   after(async () => {
     if (smart) await processSmartWebsiteLead(row.id, utm).catch((err) => console.error("[guide] processSmartWebsiteLead crashed", err));
-    else await processGuideLead(row.id, utm).catch((err) => console.error("[guide] processGuideLead crashed", err));
+    else await processGuideLead(row.id, utm, kind).catch((err) => console.error("[guide] processGuideLead crashed", err));
   });
 
   return NextResponse.json({ ok: true, lead_id: leadId }, { status: 202 });
