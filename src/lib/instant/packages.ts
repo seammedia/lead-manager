@@ -12,7 +12,10 @@ export interface LivePackage {
   notIncluded: string;
 }
 
-const PLAN_NAMES = ["Local Marketing Foundation", "Growth", "Complete Growth"];
+// Smart Website was added on 8 Nov 2026. It's optional so emails keep their prices if the live page
+// doesn't show it yet; the other three are required.
+const PLAN_NAMES = ["Smart Website", "Local Marketing Foundation", "Growth", "Complete Growth"];
+const REQUIRED_PLANS = ["Local Marketing Foundation", "Growth", "Complete Growth"];
 
 export async function fetchLivePackages(): Promise<{ packages: LivePackage[]; fetchedAt: string }> {
   const res = await fetch(PACKAGES_URL, { signal: AbortSignal.timeout(15_000), cache: "no-store" });
@@ -41,8 +44,8 @@ export async function fetchLivePackages(): Promise<{ packages: LivePackage[]; fe
     }
     packages.push({ name, weekly, description, includes, notIncluded });
   }
-  if (packages.length !== PLAN_NAMES.length || packages.some((p) => !p.weekly || !p.includes.length)) {
-    throw new Error("Couldn't read all three plans from the packages page");
+  if (REQUIRED_PLANS.some((n) => !packages.find((p) => p.name === n)) || packages.some((p) => !p.weekly || !p.includes.length)) {
+    throw new Error("Couldn't read all three main plans from the packages page");
   }
   return { packages, fetchedAt: new Date().toISOString() };
 }

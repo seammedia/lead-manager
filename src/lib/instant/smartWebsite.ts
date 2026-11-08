@@ -3,8 +3,8 @@
 // instant form, campaign or ad named "smart website" get this reply instead of the Claude-written email,
 // which only knows the Foundation, Growth and Complete Growth plans and would pitch them $140+.
 //
-// Only quote what Heath has confirmed. Until he settles the open terms (GST, setup fee, minimum term,
-// page count, what SEO covers), PRICE stays "$99 a week" with no other terms.
+// Only quote what Heath has confirmed (8 Nov 2026): $99 a week + GST, no setup fee, month to month.
+// Page count and what SEO covers are still open, so the email doesn't mention them.
 
 import { getServiceSupabase } from "@/lib/supabase";
 import { alertHeath, createDraft, getGmail, sendNow } from "./deliver";
@@ -13,7 +13,7 @@ import { firstName, textLead, toMobile } from "./guide";
 import { getMode } from "./run";
 
 export const SMART_WEBSITE_URL = "https://www.seammedia.com.au/smart-website";
-export const SMART_WEBSITE_PRICE = "$99 a week";
+export const SMART_WEBSITE_PRICE = "$99 a week + GST";
 export const SMART_WEBSITE_SUBJECT = "Your smart website enquiry";
 
 export function isSmartWebsiteLead(form: InstantLeadForm) {
@@ -35,7 +35,7 @@ export function smartWebsiteMessages(form: InstantLeadForm) {
     "- Every form enquiry gets an instant reply",
     "- Every enquiry (calls, texts, forms and missed calls) is sent to your phone by SMS",
     "",
-    "It's month to month, and I do the work myself, here in Australia.",
+    "There's no setup fee, it's month to month, and I do the work myself, here in Australia.",
     "",
     "Here's how it works:",
     SMART_WEBSITE_URL,

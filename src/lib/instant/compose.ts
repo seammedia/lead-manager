@@ -12,7 +12,7 @@ export interface ComposedEmail {
   subject: string;
   body: string;
   facts_used: string[];
-  recommended_plan: "Local Marketing Foundation" | "Growth" | "Complete Growth" | "none";
+  recommended_plan: "Smart Website" | "Local Marketing Foundation" | "Growth" | "Complete Growth" | "none";
   fit: "good" | "unsure" | "poor";
   confidence: "high" | "medium" | "low";
   notes_for_heath: string;
@@ -36,7 +36,7 @@ The email, in this order:
 1. Greeting on its own line: "Hi <first name>," when it's clear which form field holds the person's first name (people sometimes type the business into the name field and their own name into the company field). Otherwise "Hi there,".
 2. One line thanking them for reaching out about what they asked for, naming their business. If previously_emailed is true, follow up on their enquiry instead of thanking them as if it's the first contact.
 3. One or two specific findings from the facts that relate to what they asked for. Gaps are the most useful. A finding must be something they may not already know; never present their own handle, website or business details back to them as a finding. Two short bullets ("- ") are fine. Then one genuine positive if a positive fact exists.
-4. How I'd help: recommend the plan named in recommended_plan_hint, using its exact name and weekly price as given in the packages data (for example "$140 a week + GST"), and name two or three of its real inclusions that fit their need. For a social media enquiry, mention Growth as the next step if they also want Meta ads run for them, with its exact price. Never mention any price, discount, trial, guarantee or contract term that isn't in the packages data.
+4. How I'd help: recommend the plan named in recommended_plan_hint, using its exact name and weekly price as given in the packages data (for example "$140 a week + GST"), and name two or three of its real inclusions that fit their need. For a social media enquiry, mention Growth as the next step if they also want Meta ads run for them, with its exact price. Local Marketing Foundation is social media only (no website); websites are in the Smart Website plan. If the hint is Smart Website but it isn't in the packages data, don't quote a price for it. Never mention any price, discount, trial, guarantee or contract term that isn't in the packages data.
    In the same paragraph, say once, in a short clause, that I do the work myself here in Australia and nothing is offshored (Heath, 15 Oct 2026: being Australian-based, not offshore, is a big selling point). If where.lead_in_victoria is true, that clause must also say I'm local, for example "I'm local, based on the Mornington Peninsula, and I do all the work myself, nothing is offshored." If it's false or unknown, never call me local; use "I do the work myself here in Australia, nothing is offshored."
 5. The packages link on its own line: ${PACKAGES_URL}
 6. One easy question that invites a reply (their goals, or confirming something). Don't ask for a call.
@@ -65,7 +65,7 @@ const TOOL = {
       subject: { type: "string" },
       body: { type: "string", description: "The full plain-text email, from the greeting to the sign-off" },
       facts_used: { type: "array", items: { type: "string" } },
-      recommended_plan: { type: "string", enum: ["Local Marketing Foundation", "Growth", "Complete Growth", "none"] },
+      recommended_plan: { type: "string", enum: ["Smart Website", "Local Marketing Foundation", "Growth", "Complete Growth", "none"] },
       fit: { type: "string", enum: ["good", "unsure", "poor"] },
       confidence: { type: "string", enum: ["high", "medium", "low"], description: "How sure you are that every statement is accurate and right for this lead" },
       notes_for_heath: { type: "string", description: "One short line for Heath's text alert: who they are, what they want, anything to check" },
@@ -74,11 +74,13 @@ const TOOL = {
   },
 };
 
-// Heath's call (13 Oct 2026): social leads get Foundation with Growth as the step up
+// Heath's call (13 Oct 2026): social leads get Foundation with Growth as the step up.
+// 8 Nov 2026: Foundation is social only, so website-only leads get the Smart Website ($99 a week).
 export function recommendedPlanHint(form: InstantLeadForm): ComposedEmail["recommended_plan"] {
   const h = new Set(form.helpWith);
   if (h.has("google_ads") && h.has("meta_ads")) return "Complete Growth";
   if (h.has("google_ads") || h.has("meta_ads") || h.has("seo")) return "Growth";
+  if (h.has("website") && !h.has("social_media")) return "Smart Website";
   return "Local Marketing Foundation";
 }
 
