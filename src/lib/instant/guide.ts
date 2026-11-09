@@ -51,7 +51,23 @@ export function firstName(form: InstantLeadForm) {
   return n && !/[|&@\d]/.test(n) ? n.charAt(0).toUpperCase() + n.slice(1) : "";
 }
 
-export function guideMessages(form: InstantLeadForm, kind: GuideKind = "social") {
+// Guide opt-ins ask industry and monthly marketing budget (10 Nov 2026). "Just the free guide for now" and
+// "Under $250 a month" come through as qualified "no": they get the guide and the follow-up, but no call.
+export type GuideQualifier = { industry: string | null; budget: string | null; qualified: boolean | null };
+export function readQualifier(body: Record<string, unknown>): GuideQualifier {
+  const str = (k: string) => (typeof body[k] === "string" && (body[k] as string).trim() ? (body[k] as string).trim().slice(0, 60) : null);
+  const q = str("qualified");
+  return { industry: str("industry"), budget: str("budget"), qualified: q === "yes" ? true : q === "no" ? false : null };
+}
+export function qualifierNote(q: GuideQualifier) {
+  return [
+    q.industry && `Industry: ${q.industry}`,
+    q.budget && `Budget: ${q.budget}`,
+    q.qualified === false && "DON'T CALL (said just the guide, or under $250 a month). Email follow-up only",
+  ].filter(Boolean).join(" | ");
+}
+
+export function guideMessages(form: InstantLeadForm, kind: GuideKind = "social", callOk = true) {
   const g = GUIDES[kind];
   const first = firstName(form);
   const business = form.company.trim();
@@ -66,7 +82,9 @@ export function guideMessages(form: InstantLeadForm, kind: GuideKind = "social")
     g.rather,
     g.offer,
     "",
-    kind === "social"
+    !callOk
+      ? "If you'd like a hand with any of it later, just reply to this email."
+      : kind === "social"
       ? `I'll give you a quick call to see what you're after${business ? ` for ${business}` : ""}. If there's a better time, or you'd rather I didn't call, just reply and let me know.`
       : `I'll give you a quick call to ask ${g.callAbout}${business ? ` at ${business}` : ""}. If there's a better time, or you'd rather I didn't call, just reply and let me know.`,
     "",
@@ -101,7 +119,8 @@ export async function textLead(to: string, body: string) {
   return true;
 }
 
-export async function processGuideLead(id: string, utm: { source: string | null; campaign: string | null; ad: string | null }, kind: GuideKind = "social") {
+export async function processGuideLead(id: string, utm: { source: string | null; campaign: string | null; ad: string | null }, kind: GuideKind = "social", qual: GuideQualifier = { industry: null, budget: null, qualified: null }) {
+  const callOk = qual.qualified !== false;
   const g = GUIDES[kind];
   const db = getServiceSupabase();
   const touch = (patch: Record<string, unknown>) => db.from("lead_enrichments").update({ ...patch, updated_at: new Date().toISOString() }).eq("id", id);
@@ -109,8 +128,8 @@ export async function processGuideLead(id: string, utm: { source: string | null;
   if (error || !row) throw new Error(`Guide lead ${id} not found`);
   const form = row.form as InstantLeadForm;
   const who = [form.name, form.company].filter(Boolean).join(", ");
-  const callLine = `${form.phone ?? "no number"} | ${form.email}${utm.ad ? ` | Ad: ${utm.ad}` : ""}`;
-  const { subject, email, sms } = guideMessages(form, kind);
+  const callLine = [`${form.phone ?? "no number"} | ${form.email}`, qual.industry, qual.budget, utm.ad && `Ad: ${utm.ad}`].filter(Boolean).join(" | ");
+  const { subject, email, sms } = guideMessages(form, kind, callOk);
   const now = new Date().toISOString();
 
   try {
@@ -128,7 +147,7 @@ export async function processGuideLead(id: string, utm: { source: string | null;
     const mobile = toMobile(form.phone);
     const texted = mobile && mode === "auto" ? await textLead(mobile, sms).catch((err) => { console.error("[guide] lead text failed", err); return false; }) : false;
     const sent = mode === "auto" ? `Guide ${texted ? "emailed and texted" : "emailed"}` : "Guide email is in Drafts";
-    await alertHeath(`${g.label}, call them: ${who}. ${callLine}. ${sent}.`, ctx).catch((err) => console.error("[guide] alert failed", err));
+    await alertHeath(`${g.label}, ${callOk ? "call them" : "email only, DON'T CALL"}: ${who}. ${callLine}. ${sent}.`, ctx).catch((err) => console.error("[guide] alert failed", err));
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("[guide] send failed", id, message);

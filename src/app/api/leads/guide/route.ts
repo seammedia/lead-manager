@@ -2,7 +2,7 @@ import { NextRequest, NextResponse, after } from "next/server";
 import { getServiceSupabase } from "@/lib/supabase";
 import { normaliseLeadPayload } from "@/lib/instant/form";
 import { getGmail } from "@/lib/instant/deliver";
-import { GUIDES, guideFollowUp, guideMessages, processGuideLead, sendGuideFollowUp, type GuideKind } from "@/lib/instant/guide";
+import { GUIDES, guideFollowUp, guideMessages, processGuideLead, qualifierNote, readQualifier, sendGuideFollowUp, type GuideKind } from "@/lib/instant/guide";
 import { processSmartWebsiteLead, smartWebsiteMessages } from "@/lib/instant/smartWebsite";
 
 // Lead magnet opt-in (5 November 2026)
@@ -49,6 +49,8 @@ export async function POST(request: NextRequest) {
   const smart = body.offer === "smart-website";
   // offer "website-guide" comes from /website-guide (8 Nov 2026): the tradie website guide, leading with the Smart Website
   const kind: GuideKind = body.offer === "website-guide" ? "website" : "social";
+  // Industry and monthly budget from the guide forms (10 Nov 2026); qualified "no" means don't call
+  const qual = readQualifier(body);
   const form = normaliseLeadPayload(body);
   if (!EMAIL_RE.test(form.email)) {
     return NextResponse.json({ error: "A valid email is required" }, { status: 400 });
@@ -60,11 +62,11 @@ export async function POST(request: NextRequest) {
   };
 
   if (request.nextUrl.searchParams.get("dry_run") === "1") {
-    return NextResponse.json(smart ? { form, utm, ...smartWebsiteMessages(form) } : { form, utm, kind, ...guideMessages(form, kind), followUp: guideFollowUp(form, kind) });
+    return NextResponse.json(smart ? { form, utm, ...smartWebsiteMessages(form) } : { form, utm, kind, qual, note: qualifierNote(qual), ...guideMessages(form, kind, qual.qualified !== false), followUp: guideFollowUp(form, kind) });
   }
 
   const supabase = getServiceSupabase();
-  const summary = [smart ? "Asked about the Smart Website ($99 a week)" : GUIDES[kind].summary, utm.campaign && `Campaign: ${utm.campaign}`, utm.ad && `Ad: ${utm.ad}`].filter(Boolean).join(" | ");
+  const summary = [smart ? "Asked about the Smart Website ($99 a week)" : GUIDES[kind].summary, !smart && qualifierNote(qual), utm.campaign && `Campaign: ${utm.campaign}`, utm.ad && `Ad: ${utm.ad}`].filter(Boolean).join(" | ");
 
   const { data: existing } = await supabase.from("leads").select("id, notes").eq("email", form.email).order("created_at", { ascending: false }).limit(1);
   let leadId = existing?.[0]?.id as string | undefined;
@@ -81,6 +83,7 @@ export async function POST(request: NextRequest) {
         owner: "Heath",
         conversion_probability: 30,
         notes: summary,
+        ...(qual.qualified === false ? { next_action: "Don't call: said just the guide, or under $250 a month. Guide and follow-up emails only." } : {}),
         instant_flow: true,
         archived: false,
       })
@@ -111,7 +114,7 @@ export async function POST(request: NextRequest) {
 
   after(async () => {
     if (smart) await processSmartWebsiteLead(row.id, utm).catch((err) => console.error("[guide] processSmartWebsiteLead crashed", err));
-    else await processGuideLead(row.id, utm, kind).catch((err) => console.error("[guide] processGuideLead crashed", err));
+    else await processGuideLead(row.id, utm, kind, qual).catch((err) => console.error("[guide] processGuideLead crashed", err));
   });
 
   return NextResponse.json({ ok: true, lead_id: leadId }, { status: 202 });
