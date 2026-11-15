@@ -8,6 +8,7 @@ import { SourcePieChart } from "@/components/stats/SourcePieChart";
 import { RevenueSourceChart } from "@/components/stats/RevenueSourceChart";
 import { DateRangePicker } from "@/components/stats/DateRangePicker";
 import { CostMetrics } from "@/components/stats/CostMetrics";
+import { LeadTextingCost } from "@/components/stats/LeadTextingCost";
 import { TimePeriod } from "@/types";
 
 interface StatsApiResponse {
@@ -170,6 +171,11 @@ export default function StatsPage() {
       {/* Revenue by Source Chart */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <RevenueSourceChart data={stats.revenue.bySource} title="Revenue by Source" />
+      </div>
+
+      {/* Lead texting cost by month (Twilio prices) */}
+      <div className="mt-6">
+        <LeadTextingCost />
       </div>
     </AppLayout>
   );

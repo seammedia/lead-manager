@@ -16,6 +16,10 @@ const PUBLIC_ROUTES = [
   "/api/leads/instant",
   "/api/leads/guide",
   "/api/cron/instant-replies",
+  // Lead texting: TendCall events (SEAM_LEAD_LINE_SECRET), the cron (CRON_SECRET) and the public booking link
+  "/api/lead-sms/events",
+  "/api/cron/lead-sms",
+  "/b/",
 ];
 
 export function middleware(request: NextRequest) {

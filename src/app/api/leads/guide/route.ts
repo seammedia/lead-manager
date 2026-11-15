@@ -4,6 +4,7 @@ import { normaliseLeadPayload } from "@/lib/instant/form";
 import { getGmail } from "@/lib/instant/deliver";
 import { GUIDES, guideFollowUp, guideMessages, processGuideLead, qualifierNote, readQualifier, sendGuideFollowUp, type GuideKind } from "@/lib/instant/guide";
 import { processSmartWebsiteLead, smartWebsiteMessages } from "@/lib/instant/smartWebsite";
+import { leadSmsEngine } from "@/lib/leadSms";
 
 // Lead magnet opt-in (5 November 2026)
 // POST /api/leads/guide, called by /api/guide-lead on seammedia.com.au when someone asks for the free guide.
@@ -114,7 +115,11 @@ export async function POST(request: NextRequest) {
 
   after(async () => {
     if (smart) await processSmartWebsiteLead(row.id, utm).catch((err) => console.error("[guide] processSmartWebsiteLead crashed", err));
-    else await processGuideLead(row.id, utm, kind, qual).catch((err) => console.error("[guide] processGuideLead crashed", err));
+    else {
+      await processGuideLead(row.id, utm, kind, qual).catch((err) => console.error("[guide] processGuideLead crashed", err));
+      // Lead texting (16 Nov 2026): queues the instant text, or does nothing while settings.lead_sms_mode is off
+      if (leadId) await leadSmsEngine().queueLead(leadId).catch((err) => console.error("[guide] lead text queue failed", err));
+    }
   });
 
   return NextResponse.json({ ok: true, lead_id: leadId }, { status: 202 });

@@ -4,6 +4,7 @@ import { getServiceSupabase } from "@/lib/supabase";
 import { alertHeath, createDraft, getGmail, sendInThread, sendNow, type GmailContext } from "./deliver";
 import type { InstantLeadForm } from "./form";
 import { getMode } from "./run";
+import { firstText } from "../leadSms/rules";
 
 export const GUIDE_URL = "https://www.seammedia.com.au/guides/social-media-enquiries-guide.pdf";
 export const OFFER_URL = "https://www.seammedia.com.au/social-media-guide/thanks";
@@ -91,7 +92,8 @@ export function guideMessages(form: InstantLeadForm, kind: GuideKind = "social",
     "Thanks,",
     "Heath",
   ].join("\n");
-  const sms = `Hi ${first || "there"}, it's Heath from Seam Media. Here's your guide: ${g.url} I'll give you a quick call about it soon. Reply STOP to opt out.`;
+  // Preview of the lead text (lib/leadSms), which is sent separately and only when settings.lead_sms_mode allows
+  const sms = firstText({ first: first || "there", kind, dontCall: !callOk, link: null });
   return { subject: g.subject, email, sms };
 }
 
@@ -103,7 +105,8 @@ export function toMobile(phone: string | null) {
   return null;
 }
 
-// Needs the same Twilio values as Heath's text alerts. Without them the lead gets the email only.
+// Smart Website leads only (guide leads use lib/leadSms). Needs Twilio values this app doesn't have, so it
+// does nothing today; without them the lead gets the email only.
 export async function textLead(to: string, body: string) {
   const sid = process.env.TWILIO_ACCOUNT_SID;
   const token = process.env.TWILIO_AUTH_TOKEN;
@@ -129,7 +132,7 @@ export async function processGuideLead(id: string, utm: { source: string | null;
   const form = row.form as InstantLeadForm;
   const who = [form.name, form.company].filter(Boolean).join(", ");
   const callLine = [`${form.phone ?? "no number"} | ${form.email}`, qual.industry, qual.budget, utm.ad && `Ad: ${utm.ad}`].filter(Boolean).join(" | ");
-  const { subject, email, sms } = guideMessages(form, kind, callOk);
+  const { subject, email } = guideMessages(form, kind, callOk);
   const now = new Date().toISOString();
 
   try {
@@ -144,9 +147,8 @@ export async function processGuideLead(id: string, utm: { source: string | null;
     }
     if (row.lead_id) await db.from("leads").update({ last_contacted: now, updated_at: now }).eq("id", row.lead_id);
 
-    const mobile = toMobile(form.phone);
-    const texted = mobile && mode === "auto" ? await textLead(mobile, sms).catch((err) => { console.error("[guide] lead text failed", err); return false; }) : false;
-    const sent = mode === "auto" ? `Guide ${texted ? "emailed and texted" : "emailed"}` : "Guide email is in Drafts";
+    // Guide leads are texted by the lead texting flow (lib/leadSms, queued from the guide route), not here
+    const sent = mode === "auto" ? "Guide emailed" : "Guide email is in Drafts";
     await alertHeath(`${g.label}, ${callOk ? "call them" : "email only, DON'T CALL"}: ${who}. ${callLine}. ${sent}.`, ctx).catch((err) => console.error("[guide] alert failed", err));
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

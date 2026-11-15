@@ -22,6 +22,51 @@ A comprehensive CRM and lead management platform for Seam Media, featuring Gmail
 - **Email Logging** - All sent emails are logged for statistics tracking
 - **Auto-sync Last Contacted** - Syncs from Gmail history when opening a lead
 
+## Lead texting (16 November 2026)
+
+New guide leads get one text from Seam's lead line (+61 468 171 514), and replies, clicks, delivery, opt-outs and bookings are tracked on the lead. **Off by default** (`settings.lead_sms_mode`).
+
+**How it fits together.** This app owns the leads and the rules (`src/lib/leadSms/`). TendCall (`/api/seam-lead-line`, private repo `seammedia/ai-receptionist`) holds the Twilio account and the line, so no Twilio credentials or personal numbers live here. The two apps share one secret, `SEAM_LEAD_LINE_SECRET`.
+
+- **Instant text:** queued from `/api/leads/guide` for guide leads (social and tradie website guides) with an Australian mobile. Sent 8 am to 8 pm Melbourne time; outside that it waits for 8 am. Every text fits one SMS segment (160 GSM characters), names Seam Media and ends "Reply STOP to opt out". Don't-call leads get a version with no call offer.
+- **Day 1:** if there's no reply or booking and the budget is $500 a month or more, one "call this lead" text to Heath, weekdays 9 to 5.
+- **Day 3:** one final short text, then the lead is Cold. Live mode only.
+- **Never more than 2 texts a lead:** a first text needs `sms_count` 0, the final needs exactly 1, sends are claimed with an optimistic lock, and the column is capped at 2.
+- **Stops:** a text reply, a booking, STOP, a call to the line, a reply to the email, a stage change or archiving.
+- **STOP:** recorded in `sms_optouts` by number, so it sticks if they sign up again.
+- **Booking link:** `/b/<token>` logs the click (link previews and bots don't count) and forwards to `settings.lead_sms_booking_url`. Until that's set, the texts ask for a reply with a time instead. Gmail is checked for a Google Calendar "appointment booked" email naming the lead's email. It's unproven until the first real booking, so the lead's "Mark booked" button is the backup.
+- **Cost:** Twilio's price is stored on every lead text and alert (`lead_sms_events.price`, `price_unit`). The Stats page shows the monthly total. "Sync from Twilio" records texts the line sent outside the flow (for example by hand in the Twilio console) from Twilio's message log, so they count toward the cap. It never sends.
+
+**Modes** (`settings.lead_sms_mode`, changed with SQL, no redeploy):
+- `off` (default): nothing is sent; inbound replies and STOPs are still recorded.
+- `test`: only leads Heath allows ("Send instant text" in the lead's Texts panel). No day 3 text.
+- `live`: every new guide lead.
+
+**Routes:**
+- `/api/cron/lead-sms`: Vercel cron every 10 minutes, `CRON_SECRET`.
+- `/api/lead-sms/events`: from TendCall, `SEAM_LEAD_LINE_SECRET`.
+- `/api/leads/[id]/sms`: the lead panel.
+- `/api/lead-sms/cost`: the monthly cost, plus the Twilio sync.
+- `/b/[token]`: the booking link.
+
+**Env:**
+- Required: `SEAM_LEAD_LINE_SECRET`.
+- Optional:
+  - `SEAM_LEAD_LINE_URL` (default `https://app.tendcall.com/api/seam-lead-line`)
+  - `LEAD_SMS_LINK_BASE` (default this app's vercel.app URL; a shorter domain makes room for the link in more texts)
+  - `LEAD_SMS_BOOKING_URL` (fallback for the setting)
+
+**Database:** `supabase/migrations/013_lead_sms.sql`.
+
+**Tests:** `npm test` runs `tests/*.test.ts` with Node's test runner. They cover the rules, plus end-to-end dry runs with an in-memory database and the line mocked.
+
+**Google booking page (Heath, about 15 minutes):**
+1. In Google Calendar on contact@seammedia.com.au, click Create, then Appointment schedule.
+2. Title "15 minute call with Heath", duration 15 minutes, weekdays in business hours, with a buffer between calls if you like.
+3. Under Booked appointment settings, ask for name, email and mobile, and turn on Google Meet or add your phone details.
+4. Save, open the booking page and copy its link.
+5. Paste it in: `update settings set value = '"<link>"' where key = 'lead_sms_booking_url';`
+
 ## Tech Stack
 
 - **Frontend**: Next.js 16, React 19, TypeScript, Tailwind CSS

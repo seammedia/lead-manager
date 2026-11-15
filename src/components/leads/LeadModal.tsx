@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Lead, LeadStage, LeadSource } from "@/types";
 import { X, Mail, Send, Loader2, MessageSquare } from "lucide-react";
+import { LeadTextsPanel } from "./LeadTextsPanel";
 
 interface LeadModalProps {
   isOpen: boolean;
@@ -428,6 +429,7 @@ export function LeadModal({ isOpen, onClose, onSave, onEmail, onUpdateLastContac
           {/* Right side - Email History (only in edit mode) */}
           {isEditMode && (
             <div className="w-1/2 flex flex-col overflow-hidden bg-gray-50">
+              {lead && <LeadTextsPanel leadId={lead.id} />}
               <div className="p-4 border-b border-gray-200 bg-white">
                 <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
                   <MessageSquare className="w-4 h-4" />
