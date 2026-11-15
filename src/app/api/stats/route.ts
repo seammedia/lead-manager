@@ -87,10 +87,27 @@ export async function GET(request: NextRequest) {
       previousStartDate = new Date(startDate.getTime() - days * 24 * 60 * 60 * 1000);
     }
 
-    // Fetch ALL leads (including archived) for accurate stats
-    const { data: allLeads, error: leadsError } = await supabase
-      .from("leads")
-      .select("*");
+    // Fetch ALL leads (including archived) for accurate stats.
+    // Supabase returns at most 1,000 rows per request, so page through them;
+    // a single select("*") silently dropped every lead past the first 1,000.
+    const PAGE = 1000;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped Supabase rows, as the single select returned before
+    const allLeads: any[] = [];
+    let leadsError: unknown = null;
+    for (let from = 0; ; from += PAGE) {
+      const { data, error } = await supabase
+        .from("leads")
+        .select("*")
+        .order("created_at", { ascending: true })
+        .order("id", { ascending: true })
+        .range(from, from + PAGE - 1);
+      if (error) {
+        leadsError = error;
+        break;
+      }
+      allLeads.push(...(data || []));
+      if (!data || data.length < PAGE) break;
+    }
 
     if (leadsError) {
       console.error("Error fetching leads:", leadsError);
@@ -146,6 +163,19 @@ export async function GET(request: NextRequest) {
     const { count: previousEmailCount } = await supabase
       .from("email_logs")
       .select("*", { count: "exact", head: true })
+      .gte("sent_at", previousStartDate.toISOString())
+      .lt("sent_at", startDate.toISOString());
+
+    // Instant guide emails (since Oct 2026) are recorded in lead_enrichments.sent_at, not email_logs
+    const { count: instantEmailCount } = await supabase
+      .from("lead_enrichments")
+      .select("id", { count: "exact", head: true })
+      .gte("sent_at", startDate.toISOString())
+      .lte("sent_at", endDate.toISOString());
+
+    const { count: previousInstantEmailCount } = await supabase
+      .from("lead_enrichments")
+      .select("id", { count: "exact", head: true })
       .gte("sent_at", previousStartDate.toISOString())
       .lt("sent_at", startDate.toISOString());
 
@@ -321,12 +351,12 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       totalLeads: currentPeriodLeads.length,
-      emailsSent: emailCount || 0,
+      emailsSent: (emailCount || 0) + (instantEmailCount || 0),
       conversions: totalConversions,
       convRate: Math.round(convRate * 10) / 10,
       previousPeriod: {
         totalLeads: previousPeriodLeads.length,
-        emailsSent: previousEmailCount || 0,
+        emailsSent: (previousEmailCount || 0) + (previousInstantEmailCount || 0),
         conversions: previousPeriodConversions,
         convRate: Math.round(previousConvRate * 10) / 10,
       },
