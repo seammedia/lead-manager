@@ -8,11 +8,27 @@ export async function GET(request: NextRequest) {
     const archived = searchParams.get("archived") === "true";
 
     const supabase = getServiceSupabase();
-    const { data: leads, error } = await supabase
-      .from("leads")
-      .select("*")
-      .eq("archived", archived)
-      .order("created_at", { ascending: false });
+    // Supabase returns at most 1,000 rows per request, so page through them
+    // (a single select hid every lead past the newest 1,000).
+    const PAGE = 1000;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped Supabase rows, as before
+    const leads: any[] = [];
+    let error: unknown = null;
+    for (let from = 0; ; from += PAGE) {
+      const { data, error: pageError } = await supabase
+        .from("leads")
+        .select("*")
+        .eq("archived", archived)
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: false })
+        .range(from, from + PAGE - 1);
+      if (pageError) {
+        error = pageError;
+        break;
+      }
+      leads.push(...(data || []));
+      if (!data || data.length < PAGE) break;
+    }
 
     if (error) {
       console.error("Error fetching leads:", error);
