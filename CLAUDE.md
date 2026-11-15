@@ -55,6 +55,14 @@ const currentPeriodLeads = leads.filter((lead) => {
 });
 ```
 
+### Supabase 1,000-row cap (November 2026)
+
+**Problem**: Stats showed 0 leads and 0 emails for the last 30 days while 83 leads had come in.
+
+**Root cause**: `supabase.from("leads").select("*")` returns at most 1,000 rows. With 1,905 leads, every lead after the first 1,000 was silently dropped. Instant guide emails are also recorded in `lead_enrichments.sent_at`, not `email_logs`.
+
+**Fix**: page with `.range()` (ordered by `created_at`, `id`) until a page comes back short, and add `lead_enrichments` sends to Emails Sent. Any new query that needs every lead must page the same way.
+
 ### Why ROAS Shows "-"
 
 ROAS displays "-" when any of these conditions are true:
