@@ -112,7 +112,7 @@ export function normaliseLeadPayload(body: unknown): InstantLeadForm {
   const company = pick(f, ["company_name", "company", "business_name", "business"], [/company|business_name/]);
   const websiteRaw = pick(f, ["website", "website_url", "your_website", "url"], [/website/]);
   const helpWithRaw = pick(f, [], [/help/, /interested_in|looking_for/]);
-  const trade = pick(f, [], [/trade|industry|service|what_do_you_do|type_of_business/]);
+  const trade = pick(f, ["trade"], [/trade|industry|service|what_do_you_do|type_of_business/]);
 
   let website: string | null = null;
   const socialLinks: string[] = [];

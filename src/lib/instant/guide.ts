@@ -64,7 +64,7 @@ export function qualifierNote(q: GuideQualifier) {
   return [
     q.industry && `Industry: ${q.industry}`,
     q.budget && `Budget: ${q.budget}`,
-    q.qualified === false && "DON'T CALL (said just the guide, or under $250 a month). Email follow-up only",
+    q.qualified === false && "DON'T CALL (said just the guide or just looking, or under $250 a month). Email follow-up only",
   ].filter(Boolean).join(" | ");
 }
 
