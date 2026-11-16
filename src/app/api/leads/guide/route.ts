@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
   };
 
   if (request.nextUrl.searchParams.get("dry_run") === "1") {
-    if (websiteOffer) return NextResponse.json({ form, utm, qual, note: qualifierNote(qual), ...websiteOfferMessages(form, qual.qualified !== false) });
+    if (websiteOffer) return NextResponse.json({ form, utm, qual, note: qualifierNote(qual), ...websiteOfferMessages(form, qual) });
     return NextResponse.json(smart ? { form, utm, ...smartWebsiteMessages(form) } : { form, utm, kind, qual, note: qualifierNote(qual), ...guideMessages(form, kind, qual.qualified !== false), followUp: guideFollowUp(form, kind) });
   }
 
@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
         owner: "Heath",
         conversion_probability: 30,
         notes: summary,
-        ...(qual.qualified === false ? { next_action: websiteOffer ? "Don't call: said just looking, or under $250 a month. Email only." : "Don't call: said just the guide, or under $250 a month. Guide and follow-up emails only." } : {}),
+        ...(qual.qualified === false ? { next_action: websiteOffer ? "Don't call: not eligible for the website offer (under 10 Google reviews, e-commerce, just looking or under $250 a month). Email only." : "Don't call: said just the guide, or under $250 a month. Guide and follow-up emails only." } : {}),
         instant_flow: true,
         archived: false,
       })

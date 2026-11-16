@@ -54,17 +54,21 @@ export function firstName(form: InstantLeadForm) {
 
 // Guide opt-ins ask industry and monthly marketing budget (10 Nov 2026). "Just the free guide for now" and
 // "Under $250 a month" come through as qualified "no": they get the guide and the follow-up, but no call.
-export type GuideQualifier = { industry: string | null; budget: string | null; qualified: boolean | null };
+export type GuideQualifier = { industry: string | null; budget: string | null; qualified: boolean | null; reviews?: string | null };
 export function readQualifier(body: Record<string, unknown>): GuideQualifier {
   const str = (k: string) => (typeof body[k] === "string" && (body[k] as string).trim() ? (body[k] as string).trim().slice(0, 60) : null);
   const q = str("qualified");
-  return { industry: str("industry"), budget: str("budget"), qualified: q === "yes" ? true : q === "no" ? false : null };
+  // reviews: Google reviews, asked on the website offer form only (17 Nov 2026)
+  return { industry: str("industry"), budget: str("budget"), reviews: str("reviews"), qualified: q === "yes" ? true : q === "no" ? false : null };
 }
 export function qualifierNote(q: GuideQualifier) {
   return [
     q.industry && `Industry: ${q.industry}`,
     q.budget && `Budget: ${q.budget}`,
-    q.qualified === false && "DON'T CALL (said just the guide or just looking, or under $250 a month). Email follow-up only",
+    q.reviews && `Reviews: ${q.reviews}`,
+    q.qualified === false && (q.reviews
+      ? "DON'T CALL (not eligible: under 10 Google reviews, e-commerce, just looking or under $250 a month). Email only"
+      : "DON'T CALL (said just the guide or just looking, or under $250 a month). Email follow-up only"),
   ].filter(Boolean).join(" | ");
 }
 
