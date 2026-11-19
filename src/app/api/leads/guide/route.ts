@@ -5,6 +5,7 @@ import { getGmail } from "@/lib/instant/deliver";
 import { GUIDES, guideFollowUp, guideMessages, processGuideLead, qualifierNote, readQualifier, sendGuideFollowUp, type GuideKind } from "@/lib/instant/guide";
 import { processSmartWebsiteLead, smartWebsiteMessages } from "@/lib/instant/smartWebsite";
 import { processWebsiteOfferLead, websiteOfferMessages } from "@/lib/instant/websiteOffer";
+import { processSocialManagerLead, socialManagerMessages } from "@/lib/instant/socialManager";
 import { leadSmsEngine } from "@/lib/leadSms";
 
 // Lead magnet opt-in (5 November 2026)
@@ -17,6 +18,8 @@ import { leadSmsEngine } from "@/lib/leadSms";
 //       with optional trade and website.
 //       offer: "website-offer" (from /website-offer, 17 Nov 2026) sends the website offer reply, with industry, budget,
 //       trade and website.
+//       offer: "social-manager" (from /social-media-manager, 19 Nov 2026) sends the social media manager reply
+//       (Foundation, $140 a week + GST), with industry, budget, trade, website and social (their Instagram or Facebook page).
 // Query: ?dry_run=1 returns the emails and text without saving or sending anything.
 //        ?followup_test=<enrichment id> sends that row's follow-up now (test addresses only).
 //
@@ -52,6 +55,8 @@ export async function POST(request: NextRequest) {
 
   const smart = body.offer === "smart-website";
   const websiteOffer = body.offer === "website-offer";
+  const socialManager = body.offer === "social-manager";
+  const social = socialManager && typeof body.social === "string" && body.social.trim() ? body.social.trim().slice(0, 200) : null;
   // offer "website-guide" comes from /website-guide (8 Nov 2026): the tradie website guide, leading with the Smart Website
   const kind: GuideKind = body.offer === "website-guide" ? "website" : "social";
   // Industry and monthly budget from the guide forms (10 Nov 2026); qualified "no" means don't call
@@ -68,11 +73,12 @@ export async function POST(request: NextRequest) {
 
   if (request.nextUrl.searchParams.get("dry_run") === "1") {
     if (websiteOffer) return NextResponse.json({ form, utm, qual, note: qualifierNote(qual), ...websiteOfferMessages(form, qual) });
+    if (socialManager) return NextResponse.json({ form, utm, qual, social, note: qualifierNote(qual), ...socialManagerMessages(form, qual) });
     return NextResponse.json(smart ? { form, utm, ...smartWebsiteMessages(form) } : { form, utm, kind, qual, note: qualifierNote(qual), ...guideMessages(form, kind, qual.qualified !== false), followUp: guideFollowUp(form, kind) });
   }
 
   const supabase = getServiceSupabase();
-  const summary = [smart ? "Asked about the Smart Website ($99 a week)" : websiteOffer ? "Asked about the website offer" : GUIDES[kind].summary, !smart && qualifierNote(qual), utm.campaign && `Campaign: ${utm.campaign}`, utm.ad && `Ad: ${utm.ad}`].filter(Boolean).join(" | ");
+  const summary = [smart ? "Asked about the Smart Website ($99 a week)" : websiteOffer ? "Asked about the website offer" : socialManager ? "Asked about the social media manager (Foundation, $140 a week)" : GUIDES[kind].summary, !smart && qualifierNote(qual), social && `Social: ${social}`, utm.campaign && `Campaign: ${utm.campaign}`, utm.ad && `Ad: ${utm.ad}`].filter(Boolean).join(" | ");
 
   const { data: existing } = await supabase.from("leads").select("id, notes").eq("email", form.email).order("created_at", { ascending: false }).limit(1);
   let leadId = existing?.[0]?.id as string | undefined;
@@ -89,7 +95,7 @@ export async function POST(request: NextRequest) {
         owner: "Heath",
         conversion_probability: 30,
         notes: summary,
-        ...(qual.qualified === false ? { next_action: websiteOffer ? "Don't call: not eligible for the website offer (under 10 Google reviews, e-commerce, just looking or under $250 a month). Email only." : "Don't call: said just the guide, or under $250 a month. Guide and follow-up emails only." } : {}),
+        ...(qual.qualified === false ? { next_action: websiteOffer ? "Don't call: not eligible for the website offer (under 10 Google reviews, e-commerce, just looking or under $250 a month). Email only." : socialManager ? "Don't call: just looking or under $250 a month. Social media manager email only." : "Don't call: said just the guide, or under $250 a month. Guide and follow-up emails only." } : {}),
         instant_flow: true,
         archived: false,
       })
@@ -120,6 +126,7 @@ export async function POST(request: NextRequest) {
 
   after(async () => {
     if (websiteOffer) await processWebsiteOfferLead(row.id, utm, qual).catch((err) => console.error("[guide] processWebsiteOfferLead crashed", err));
+    else if (socialManager) await processSocialManagerLead(row.id, utm, qual, social).catch((err) => console.error("[guide] processSocialManagerLead crashed", err));
     else if (smart) await processSmartWebsiteLead(row.id, utm).catch((err) => console.error("[guide] processSmartWebsiteLead crashed", err));
     else {
       await processGuideLead(row.id, utm, kind, qual).catch((err) => console.error("[guide] processGuideLead crashed", err));
