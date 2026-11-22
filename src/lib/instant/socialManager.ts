@@ -8,7 +8,8 @@
 import { getServiceSupabase } from "@/lib/supabase";
 import { alertHeath, createDraft, getGmail, sendNow } from "./deliver";
 import type { InstantLeadForm } from "./form";
-import { firstName, type GuideQualifier } from "./guide";
+import type { GuideQualifier } from "./guide";
+import { businessPhrase, firstName } from "./leadName";
 import { getMode } from "./run";
 
 export const SOCIAL_MANAGER_URL = "https://www.seammedia.com.au/social-media-manager";
@@ -16,12 +17,11 @@ export const SOCIAL_MANAGER_SUBJECT = "Your social media, done for you";
 
 export function socialManagerMessages(form: InstantLeadForm, qual: GuideQualifier) {
   const first = firstName(form);
-  const business = form.company.trim();
   const callOk = qual.qualified !== false;
   const lines = [
     `Hi ${first || "there"},`,
     "",
-    `Thanks for asking about social media${business ? ` for ${business}` : ""}.`,
+    `Thanks for asking about social media${businessPhrase(form)}.`,
     "",
     "Here's how it works. I run your Facebook and Instagram, and make the posts from what you already have: your website, your Google reviews and your past jobs. Phone snaps are welcome, but you never have to send them.",
     "",

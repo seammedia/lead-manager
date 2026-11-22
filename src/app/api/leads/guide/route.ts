@@ -5,6 +5,7 @@ import { getGmail } from "@/lib/instant/deliver";
 import { GUIDES, guideFollowUp, guideMessages, processGuideLead, qualifierNote, readQualifier, sendGuideFollowUp, type GuideKind } from "@/lib/instant/guide";
 import { processSmartWebsiteLead, smartWebsiteMessages } from "@/lib/instant/smartWebsite";
 import { processWebsiteOfferLead, websiteOfferMessages } from "@/lib/instant/websiteOffer";
+import { HIGH_BUDGET_FLAG, isHighBudget } from "@/lib/instant/websiteOfferCopy";
 import { processSocialManagerLead, socialManagerMessages } from "@/lib/instant/socialManager";
 import { leadSmsEngine } from "@/lib/leadSms";
 
@@ -95,7 +96,7 @@ export async function POST(request: NextRequest) {
         owner: "Heath",
         conversion_probability: 30,
         notes: summary,
-        ...(qual.qualified === false ? { next_action: websiteOffer ? "Don't call: not eligible for the website offer (under 10 Google reviews, e-commerce, just looking or under $250 a month). Email only." : socialManager ? "Don't call: just looking or under $250 a month. Social media manager email only." : "Don't call: said just the guide, or under $250 a month. Guide and follow-up emails only." } : {}),
+        ...(websiteOffer && isHighBudget(qual.budget) ? { next_action: `${HIGH_BUDGET_FLAG}: top budget band (${qual.budget}). The reply is held as a Gmail draft, not sent. Look at the business and decide whether to call.` } : qual.qualified === false ? { next_action: websiteOffer ? "Don't call: not eligible for the website offer (under 10 Google reviews, e-commerce, just looking or under $250 a month). Email only." : socialManager ? "Don't call: just looking or under $250 a month. Social media manager email only." : "Don't call: said just the guide, or under $250 a month. Guide and follow-up emails only." } : {}),
         instant_flow: true,
         archived: false,
       })

@@ -9,7 +9,8 @@
 import { getServiceSupabase } from "@/lib/supabase";
 import { alertHeath, createDraft, getGmail, sendNow } from "./deliver";
 import type { InstantLeadForm } from "./form";
-import { firstName, textLead, toMobile } from "./guide";
+import { textLead, toMobile } from "./guide";
+import { businessPhrase, firstName } from "./leadName";
 import { getMode } from "./run";
 
 export const SMART_WEBSITE_URL = "https://www.seammedia.com.au/smart-website";
@@ -22,11 +23,10 @@ export function isSmartWebsiteLead(form: InstantLeadForm) {
 
 export function smartWebsiteMessages(form: InstantLeadForm) {
   const first = firstName(form);
-  const business = form.company.trim();
   const email = [
     `Hi ${first || "there"},`,
     "",
-    `Thanks for asking about a smart website${business ? ` for ${business}` : ""}.`,
+    `Thanks for asking about a smart website${businessPhrase(form)}.`,
     "",
     `Here's what you get for ${SMART_WEBSITE_PRICE}:`,
     "",

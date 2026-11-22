@@ -5,6 +5,10 @@ import { alertHeath, createDraft, getGmail, sendInThread, sendNow, type GmailCon
 import type { InstantLeadForm } from "./form";
 import { getMode } from "./run";
 import { firstText } from "../leadSms/rules";
+import { businessPhrase, firstName } from "./leadName";
+import { HIGH_BUDGET_FLAG, isHighBudget } from "./websiteOfferCopy";
+
+export { firstName };
 
 export const GUIDE_URL = "https://www.seammedia.com.au/guides/social-media-enquiries-guide.pdf";
 export const OFFER_URL = "https://www.seammedia.com.au/social-media-guide/thanks";
@@ -47,11 +51,6 @@ export const GUIDES: Record<GuideKind, {
 };
 const kindOfSubject = (subject: string | null | undefined): GuideKind => (subject === GUIDES.website.subject ? "website" : "social");
 
-export function firstName(form: InstantLeadForm) {
-  const n = form.name.trim().split(/\s+/)[0] ?? "";
-  return n && !/[|&@\d]/.test(n) ? n.charAt(0).toUpperCase() + n.slice(1) : "";
-}
-
 // Guide opt-ins ask industry and monthly marketing budget (10 Nov 2026). "Just the free guide for now" and
 // "Under $250 a month" come through as qualified "no": they get the guide and the follow-up, but no call.
 export type GuideQualifier = { industry: string | null; budget: string | null; qualified: boolean | null; reviews?: string | null };
@@ -66,7 +65,8 @@ export function qualifierNote(q: GuideQualifier) {
     q.industry && `Industry: ${q.industry}`,
     q.budget && `Budget: ${q.budget}`,
     q.reviews && `Reviews: ${q.reviews}`,
-    q.qualified === false && (q.reviews
+    q.qualified === false && isHighBudget(q.budget) && `${HIGH_BUDGET_FLAG} (top budget band, so not declined: reply held as a draft for Heath)`,
+    q.qualified === false && !isHighBudget(q.budget) && (q.reviews
       ? "DON'T CALL (not eligible: under 10 Google reviews, e-commerce, just looking or under $250 a month). Email only"
       : "DON'T CALL (said just the guide or just looking, or under $250 a month). Email follow-up only"),
   ].filter(Boolean).join(" | ");
@@ -75,7 +75,6 @@ export function qualifierNote(q: GuideQualifier) {
 export function guideMessages(form: InstantLeadForm, kind: GuideKind = "social", callOk = true) {
   const g = GUIDES[kind];
   const first = firstName(form);
-  const business = form.company.trim();
   const email = [
     `Hi ${first || "there"},`,
     "",
@@ -90,8 +89,8 @@ export function guideMessages(form: InstantLeadForm, kind: GuideKind = "social",
     !callOk
       ? "If you'd like a hand with any of it later, just reply to this email."
       : kind === "social"
-      ? `I'll give you a quick call to see what you're after${business ? ` for ${business}` : ""}. If there's a better time, or you'd rather I didn't call, just reply and let me know.`
-      : `I'll give you a quick call to ask ${g.callAbout}${business ? ` at ${business}` : ""}. If there's a better time, or you'd rather I didn't call, just reply and let me know.`,
+      ? `I'll give you a quick call to see what you're after${businessPhrase(form)}. If there's a better time, or you'd rather I didn't call, just reply and let me know.`
+      : `I'll give you a quick call to ask ${g.callAbout}${businessPhrase(form, "at")}. If there's a better time, or you'd rather I didn't call, just reply and let me know.`,
     "",
     "Thanks,",
     "Heath",
