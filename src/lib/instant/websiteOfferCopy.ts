@@ -15,12 +15,21 @@ const WALK_AWAY_DAYS = 60;
 export const HIGH_BUDGET_BAND = "$2,500+ a month";
 export const isHighBudget = (budget: string | null | undefined) => !!budget && /\$\s*2,?500\s*\+/.test(budget);
 export const HIGH_BUDGET_FLAG = "HIGH BUDGET - check by hand";
+// Seam doesn't take finance or mortgage brokers, and the form has no finance option to filter them out
+export const FINANCE_CHECK = "Check it isn't a finance or mortgage broker (Seam doesn't take those).";
+
+// Offer eligibility from the raw form answers (10+ Google reviews, not e-commerce). Not from `qualified`: since
+// 23 Nov 2026 the website sends top-band leads as qualified = yes whatever their reviews.
+export function websiteOfferEligibility(qual: GuideQualifier) {
+  const fewReviews = !!qual.reviews && !/10 or more/i.test(qual.reviews);
+  const ecommerce = qual.industry === "Ecommerce and retail";
+  return { fewReviews, ecommerce, eligible: !fewReviews && !ecommerce };
+}
 
 export function websiteOfferMessages(form: InstantLeadForm, qual: GuideQualifier) {
   const first = firstName(form);
   const callOk = qual.qualified !== false;
-  const fewReviews = !!qual.reviews && !/10 or more/i.test(qual.reviews);
-  const ecommerce = qual.industry === "Ecommerce and retail";
+  const { fewReviews, ecommerce } = websiteOfferEligibility(qual);
   const high = isHighBudget(qual.budget);
   const lines = [
     `Hi ${first || "there"},`,
@@ -75,8 +84,11 @@ export const websiteOfferAutoSend = (mode: string, qual: GuideQualifier) => mode
 export function websiteOfferAlert(qual: GuideQualifier, who: string, callLine: string, sent: string) {
   const callOk = qual.qualified !== false;
   if (isHighBudget(qual.budget)) {
-    const fit = callOk ? "eligible for the offer" : "NOT eligible for the offer as asked (Google reviews or e-commerce), so no decline was sent";
-    return `${HIGH_BUDGET_FLAG}: website offer lead on ${qual.budget}, ${fit}. Handle personally: ${who}. ${callLine}. ${sent}, not sent.`;
+    const { fewReviews, eligible } = websiteOfferEligibility(qual);
+    const fit = eligible
+      ? "eligible for the free website offer"
+      : `not eligible for the free website offer (${fewReviews ? qual.reviews : "e-commerce"}), so no decline was sent`;
+    return `${HIGH_BUDGET_FLAG}: website offer lead on ${qual.budget}, ${fit}. ${FINANCE_CHECK} Handle personally: ${who}. ${callLine}. ${sent}, not sent.`;
   }
   return `Website offer lead, ${callOk ? "call them" : "email only, DON'T CALL"}: ${who}. ${callLine}. ${sent}.`;
 }

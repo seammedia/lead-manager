@@ -65,8 +65,9 @@ export function qualifierNote(q: GuideQualifier) {
     q.industry && `Industry: ${q.industry}`,
     q.budget && `Budget: ${q.budget}`,
     q.reviews && `Reviews: ${q.reviews}`,
-    q.qualified === false && isHighBudget(q.budget) && `${HIGH_BUDGET_FLAG} (top budget band, so not declined: reply held as a draft for Heath)`,
-    q.qualified === false && !isHighBudget(q.budget) && (q.reviews
+    // Website offer only (q.reviews is asked on that form): top band is flagged whatever `qualified` says
+    !!q.reviews && isHighBudget(q.budget) && `${HIGH_BUDGET_FLAG} (top budget band, so not declined: reply held as a draft for Heath; check it isn't a finance or mortgage broker)`,
+    q.qualified === false && !(q.reviews && isHighBudget(q.budget)) && (q.reviews
       ? "DON'T CALL (not eligible: under 10 Google reviews, e-commerce, just looking or under $250 a month). Email only"
       : "DON'T CALL (said just the guide or just looking, or under $250 a month). Email follow-up only"),
   ].filter(Boolean).join(" | ");

@@ -5,10 +5,10 @@ Dated record of lead manager changes, newest first. README.md holds the current 
 ## 23 November 2026 - Website offer: top-budget leads held for Heath, business-name guard
 
 - Why: a website offer lead on the top budget band with no Google profile was marked "email only, DON'T CALL" and auto-sent the decline. The business was a real NDIS allied-health provider. The reply also thanked her for asking about a website "for" her own first name, typed in the business name field.
-- Top budget band ("$2,500+ a month", the site's `BUDGETS`) is never auto-sent or auto-declined, whatever the Google profile or industry answer. The reply is held as a Gmail draft (no decline paragraph when they're not eligible, a call line instead), the alert to Heath starts "HIGH BUDGET - check by hand", and the lead's note and next action say the same instead of DON'T CALL. "$1,000 to $2,500 a month" and below are unchanged.
+- Top budget band ("$2,500+ a month", the site's `BUDGETS`) is never auto-sent or auto-declined, whatever the Google profile or industry answer. The reply is held as a Gmail draft (no decline paragraph when they're not eligible, a call line instead), the alert to Heath starts "HIGH BUDGET - check by hand", and the lead's note and next action say the same instead of DON'T CALL. The alert's eligibility wording ("eligible" or "not eligible for the free website offer") comes from the raw Google reviews and industry answers, not `qualified`, and it reminds Heath to check the business isn't a finance or mortgage broker (Seam doesn't take those, and the form has no finance option). "$1,000 to $2,500 a month" and below are unchanged.
 - Business-name guard: when the business name is the lead's own first, last or full name (any case), the instant reply templates (website offer, Smart Website, social media manager, guides) say "your business" instead of printing it.
-- New pure modules `src/lib/instant/leadName.ts` and `src/lib/instant/websiteOfferCopy.ts` so the wording can be tested. Tests: `npm test`, 27 passing (7 new in `tests/websiteOffer.test.ts`). `next build --webpack` passes.
-- Not changed: seammedia.com.au still sends these leads as `qualified: no` and doesn't fire the Meta Lead event for them (`lib/lead-qualify.ts` in the site repo).
+- New pure modules `src/lib/instant/leadName.ts` and `src/lib/instant/websiteOfferCopy.ts` so the wording can be tested. Tests: `npm test`, 28 passing (8 new in `tests/websiteOffer.test.ts`). `next build --webpack` passes.
+- Website side (seammedia commit c54e0b4): top-band website offer leads now arrive as `qualified: yes`, so the lead manager no longer relies on `qualified` for them.
 
 ## 16 November 2026 - Lead texting (branch `lead-sms`, off by default)
 

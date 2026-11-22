@@ -5,7 +5,7 @@ import type { InstantLeadForm } from "../src/lib/instant/form";
 import type { GuideQualifier } from "../src/lib/instant/guide";
 import { businessIsPersonName, businessName, businessPhrase } from "../src/lib/instant/leadName";
 import {
-  HIGH_BUDGET_FLAG, WEBSITE_OFFER_URL, isHighBudget, websiteOfferAlert, websiteOfferAutoSend, websiteOfferMessages,
+  FINANCE_CHECK, HIGH_BUDGET_FLAG, WEBSITE_OFFER_URL, isHighBudget, websiteOfferAlert, websiteOfferAutoSend, websiteOfferMessages,
 } from "../src/lib/instant/websiteOfferCopy";
 
 const form = (name: string, company: string): InstantLeadForm => ({
@@ -57,6 +57,24 @@ test("high budget alert is flagged HIGH BUDGET - check by hand, never DON'T CALL
   assert.equal(HIGH_BUDGET_FLAG, "HIGH BUDGET - check by hand");
   assert.doesNotMatch(a, /DON'T CALL/);
   assert.match(a, /Reply is in Drafts, not sent\./);
+});
+
+test("high budget alert: eligibility comes from reviews and industry, not qualified = yes; finance broker reminder", () => {
+  // The website sends top-band website offer leads as qualified = yes since 23 Nov 2026
+  const noProfile = websiteOfferAlert(qual("$2,500+ a month", "No Google Business Profile", "Hospitality and food", true), "Jane Example, Example Co", "x", "Reply is in Drafts");
+  assert.ok(noProfile.startsWith("HIGH BUDGET - check by hand:"));
+  assert.match(noProfile, /not eligible for the free website offer \(No Google Business Profile\)/);
+  assert.ok(noProfile.includes(FINANCE_CHECK));
+  assert.match(FINANCE_CHECK, /finance or mortgage broker/);
+  const ecom = websiteOfferAlert(qual("$2,500+ a month", "10 or more Google reviews", "Ecommerce and retail", true), "J", "x", "Reply is in Drafts");
+  assert.match(ecom, /not eligible for the free website offer \(e-commerce\)/);
+  const fit = websiteOfferAlert(qual("$2,500+ a month", "10 or more Google reviews", "NDIS and allied health", true), "J", "x", "Reply is in Drafts");
+  assert.match(fit, /, eligible for the free website offer\./);
+  assert.ok(fit.includes(FINANCE_CHECK));
+  // The reply still has no decline, and is still held, when qualified = yes
+  const q = qual("$2,500+ a month", "No Google Business Profile", "Hospitality and food", true);
+  assert.doesNotMatch(websiteOfferMessages(form("Jane Example", "Example Co"), q).email, DECLINE);
+  assert.ok(!websiteOfferAutoSend("auto", q));
 });
 
 test("other budgets: unchanged (decline when ineligible, auto-send in auto mode, DON'T CALL alert)", () => {
