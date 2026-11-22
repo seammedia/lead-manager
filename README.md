@@ -534,6 +534,12 @@ ALTER TABLE leads ADD CONSTRAINT leads_stage_check
 **Settings table missing:**
 - Run Migration 4 above to create settings table
 
+**RLS disabled on business_context:**
+- Supabase Security Advisor may flag `public.business_context` with "Policy Exists RLS Disabled" and "RLS Disabled in Public"
+- This means the policy exists but RLS is not actually enabled, leaving the table publicly accessible via the anon key
+- Fix: `ALTER TABLE public.business_context ENABLE ROW LEVEL SECURITY;`
+- The app uses `service_role` key server-side (which bypasses RLS), so enabling RLS does not break functionality
+
 ### Build Issues
 
 **"middleware is deprecated" warning:**
@@ -969,6 +975,14 @@ const tableLeads = leads.filter(l => {
 | exit_date | DATE | Customer exit/churn date (manually set when customer leaves) |
 
 ## Recent Updates Log
+
+### March 2026
+
+13. **RLS Security Fix for business_context Table**
+    - Supabase Security Advisor flagged 2 errors: "Policy Exists RLS Disabled" and "RLS Disabled in Public" on `public.business_context`
+    - RLS policy existed but RLS was not enabled, leaving the table publicly accessible via the anon key
+    - Fix: `ALTER TABLE public.business_context ENABLE ROW LEVEL SECURITY;`
+    - App uses `service_role` key server-side which bypasses RLS, so no functionality impact
 
 ### February 2026
 

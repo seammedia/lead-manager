@@ -2,6 +2,12 @@
 
 Dated record of lead manager changes, newest first. README.md holds the current state.
 
+## 2026-11-23 (security: leads table closed to the public key)
+
+- Found while checking the uncommitted March RLS work: the leads policy "Allow all for authenticated users" applied to every role with USING (true), so the public anon key could read, change and delete all leads (1,916 rows were visible to it in a read-only count test).
+- Dropped the policy in production (migration 014). Re-tested with the anon key: leads, activities, email_logs, users, business_context, lead_sms_events and sms_optouts all return 0 rows. The app only uses the service role for leads, so nothing changes for it.
+- Committed the March work that was already applied in production but never committed: migration 009 (settings and business_context locked) and its README notes.
+
 ## 23 November 2026 - Website offer: top-budget leads held for Heath, business-name guard
 
 - Why: a website offer lead on the top budget band with no Google profile was marked "email only, DON'T CALL" and auto-sent the decline. The business was a real NDIS allied-health provider. The reply also thanked her for asking about a website "for" her own first name, typed in the business name field.
