@@ -2,6 +2,13 @@
 
 Dated record of lead manager changes, newest first. README.md holds the current state.
 
+## 2026-11-25 - Quick job offer (branch `odd-jobs`, not deployed)
+
+- New offer `quick-job` on `/api/leads/guide`: its own reply (the "from" price for the job only, a fixed price or a question within one business day) and an alert to Heath with job, budget, timing, link and details. Under $300 is email only. Possible finance or mortgage brokers are flagged and the reply is held as a draft.
+- No lead text, and the 48-hour guide follow-up skips any lead with a quick job in its notes (also when the same person asked for a guide earlier). `instant_flow` is set, so the 24-hour follow-up skips them too.
+- A guide download in the last 30 minutes doesn't swallow a quick job; a second, different job alerts Heath without a second email.
+- Wording and rules in `src/lib/instant/quickJobCopy.ts`, tests in `tests/quickJob.test.ts` (`npm test`, 36 passing).
+
 ## 2026-11-23 (security: leads table closed to the public key)
 
 - Found while checking the uncommitted March RLS work: the leads policy "Allow all for authenticated users" applied to every role with USING (true), so the public anon key could read, change and delete all leads (1,916 rows were visible to it in a read-only count test).

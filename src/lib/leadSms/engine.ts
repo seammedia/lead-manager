@@ -11,6 +11,7 @@ import {
   firstName, firstText, guideKind, inBusinessHours, inSendWindow, isBot, isDontCall, isOptOutText, melbourneLabel,
   melbourneMonth, newToken, nextSendTime, parseBudgetMin, parseMode, toMobile, type SmsMode,
 } from "./rules";
+import { isQuickJobLead } from "../instant/quickJobCopy";
 
 export type SmsState = "queued" | "sent" | "replied" | "booked" | "opted_out" | "cold" | "stopped" | "skipped" | "failed";
 
@@ -131,6 +132,7 @@ export function createEngine(deps: Deps) {
     if (l.archived) return "lead archived";
     if (l.stage !== "contacted_1") return `stage changed to ${l.stage}`;
     if (l.sms_replied_at || l.sms_booked_at || l.sms_opted_out_at) return "replied, booked or opted out";
+    if (isQuickJobLead(l.notes)) return "asked for a one-off quick job";
     const email = await store.emailReplyStatus(l.id);
     if (email && EMAIL_STOP.includes(email)) return `email ${email}`;
     if (l.sms_phone && (await store.isOptedOut(l.sms_phone))) return "number opted out";
@@ -153,6 +155,7 @@ export function createEngine(deps: Deps) {
       await store.insertEvent({ lead_id: l.id, type: "skipped", detail: { reason } });
       return { ok: false, reason };
     };
+    if (isQuickJobLead(l.notes)) return skip("quick job lead, email only");
     const kind = guideKind(l.notes);
     if (!kind) return skip("not a guide lead");
     const mobile = toMobile(l.phone);

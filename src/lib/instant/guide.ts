@@ -6,6 +6,7 @@ import type { InstantLeadForm } from "./form";
 import { getMode } from "./run";
 import { firstText } from "../leadSms/rules";
 import { businessPhrase, firstName } from "./leadName";
+import { isQuickJobLead } from "./quickJobCopy";
 import { HIGH_BUDGET_FLAG, isHighBudget } from "./websiteOfferCopy";
 
 export { firstName };
@@ -221,8 +222,8 @@ export async function sendDueGuideFollowUps(ctx: GmailContext) {
   let sent = 0;
   for (const row of rows ?? []) {
     if ((row.facts as { guide_followup_at?: string } | null)?.guide_followup_at || sent >= 5) continue;
-    const { data: lead } = await db.from("leads").select("stage, archived").eq("id", row.lead_id).single();
-    if (!lead || lead.archived || lead.stage !== "contacted_1") continue;
+    const { data: lead } = await db.from("leads").select("stage, archived, notes").eq("id", row.lead_id).single();
+    if (!lead || lead.archived || lead.stage !== "contacted_1" || isQuickJobLead(lead.notes)) continue;
     try {
       await sendGuideFollowUp(ctx, row);
       sent++;

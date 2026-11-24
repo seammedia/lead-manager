@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse, after } from "next/server";
 import { getServiceSupabase } from "@/lib/supabase";
 import { normaliseLeadPayload } from "@/lib/instant/form";
-import { getGmail } from "@/lib/instant/deliver";
+import { alertHeath, getGmail } from "@/lib/instant/deliver";
 import { GUIDES, guideFollowUp, guideMessages, processGuideLead, qualifierNote, readQualifier, sendGuideFollowUp, type GuideKind } from "@/lib/instant/guide";
 import { processSmartWebsiteLead, smartWebsiteMessages } from "@/lib/instant/smartWebsite";
 import { processWebsiteOfferLead, websiteOfferMessages } from "@/lib/instant/websiteOffer";
 import { FINANCE_CHECK, HIGH_BUDGET_FLAG, isHighBudget } from "@/lib/instant/websiteOfferCopy";
 import { processSocialManagerLead, socialManagerMessages } from "@/lib/instant/socialManager";
+import { processQuickJobLead } from "@/lib/instant/quickJob";
+import { QUICK_JOB_PLAN, looksLikeFinanceBroker, quickJobAlert, quickJobMessages, quickJobNextAction, quickJobNote, readQuickJob } from "@/lib/instant/quickJobCopy";
 import { leadSmsEngine } from "@/lib/leadSms";
 
 // Lead magnet opt-in (5 November 2026)
@@ -21,6 +23,8 @@ import { leadSmsEngine } from "@/lib/leadSms";
 //       trade and website.
 //       offer: "social-manager" (from /social-media-manager, 19 Nov 2026) sends the social media manager reply
 //       (Foundation, $140 a week + GST), with industry, budget, trade, website and social (their Instagram or Facebook page).
+//       offer: "quick-job" (from /quick-jobs, 25 Nov 2026) sends the one-off job reply, with job, budget, timing,
+//       website and details. No guide, package or SMS follow-up.
 // Query: ?dry_run=1 returns the emails and text without saving or sending anything.
 //        ?followup_test=<enrichment id> sends that row's follow-up now (test addresses only).
 //
@@ -57,6 +61,7 @@ export async function POST(request: NextRequest) {
   const smart = body.offer === "smart-website";
   const websiteOffer = body.offer === "website-offer";
   const socialManager = body.offer === "social-manager";
+  const quickJob = body.offer === "quick-job" ? readQuickJob(body) : null;
   const social = socialManager && typeof body.social === "string" && body.social.trim() ? body.social.trim().slice(0, 200) : null;
   // offer "website-guide" comes from /website-guide (8 Nov 2026): the tradie website guide, leading with the Smart Website
   const kind: GuideKind = body.offer === "website-guide" ? "website" : "social";
@@ -66,6 +71,9 @@ export async function POST(request: NextRequest) {
   if (!EMAIL_RE.test(form.email)) {
     return NextResponse.json({ error: "A valid email is required" }, { status: 400 });
   }
+  // So the pipeline note says what they asked for if they reply
+  if (quickJob) form.helpWithRaw = quickJob.label;
+  const finance = !!quickJob && looksLikeFinanceBroker(form, quickJob);
   const utm = {
     source: typeof body.utm_source === "string" ? body.utm_source : null,
     campaign: typeof body.utm_campaign === "string" ? body.utm_campaign : null,
@@ -73,13 +81,14 @@ export async function POST(request: NextRequest) {
   };
 
   if (request.nextUrl.searchParams.get("dry_run") === "1") {
+    if (quickJob) return NextResponse.json({ form, utm, quickJob, note: quickJobNote(quickJob, finance), alert: quickJobAlert(quickJob, form, utm.ad, "Dry run", finance), ...quickJobMessages(form, quickJob) });
     if (websiteOffer) return NextResponse.json({ form, utm, qual, note: qualifierNote(qual), ...websiteOfferMessages(form, qual) });
     if (socialManager) return NextResponse.json({ form, utm, qual, social, note: qualifierNote(qual), ...socialManagerMessages(form, qual) });
     return NextResponse.json(smart ? { form, utm, ...smartWebsiteMessages(form) } : { form, utm, kind, qual, note: qualifierNote(qual), ...guideMessages(form, kind, qual.qualified !== false), followUp: guideFollowUp(form, kind) });
   }
 
   const supabase = getServiceSupabase();
-  const summary = [smart ? "Asked about the Smart Website ($99 a week)" : websiteOffer ? "Asked about the website offer" : socialManager ? "Asked about the social media manager (Foundation, $140 a week)" : GUIDES[kind].summary, !smart && qualifierNote(qual), social && `Social: ${social}`, utm.campaign && `Campaign: ${utm.campaign}`, utm.ad && `Ad: ${utm.ad}`].filter(Boolean).join(" | ");
+  const summary = [quickJob ? quickJobNote(quickJob, finance) : smart ? "Asked about the Smart Website ($99 a week)" : websiteOffer ? "Asked about the website offer" : socialManager ? "Asked about the social media manager (Foundation, $140 a week)" : GUIDES[kind].summary, !smart && !quickJob && qualifierNote(qual), social && `Social: ${social}`, utm.campaign && `Campaign: ${utm.campaign}`, utm.ad && `Ad: ${utm.ad}`].filter(Boolean).join(" | ");
 
   const { data: existing } = await supabase.from("leads").select("id, notes").eq("email", form.email).order("created_at", { ascending: false }).limit(1);
   let leadId = existing?.[0]?.id as string | undefined;
@@ -96,7 +105,7 @@ export async function POST(request: NextRequest) {
         owner: "Heath",
         conversion_probability: 30,
         notes: summary,
-        ...(websiteOffer && isHighBudget(qual.budget) ? { next_action: `${HIGH_BUDGET_FLAG}: top budget band (${qual.budget}). The reply is held as a Gmail draft, not sent. Look at the business and decide whether to call. ${FINANCE_CHECK}` } : qual.qualified === false ? { next_action: websiteOffer ? "Don't call: not eligible for the website offer (under 10 Google reviews, e-commerce, just looking or under $250 a month). Email only." : socialManager ? "Don't call: just looking or under $250 a month. Social media manager email only." : "Don't call: said just the guide, or under $250 a month. Guide and follow-up emails only." } : {}),
+        ...(quickJob ? { next_action: quickJobNextAction(quickJob, finance) } : websiteOffer && isHighBudget(qual.budget) ? { next_action: `${HIGH_BUDGET_FLAG}: top budget band (${qual.budget}). The reply is held as a Gmail draft, not sent. Look at the business and decide whether to call. ${FINANCE_CHECK}` } : qual.qualified === false ? { next_action: websiteOffer ? "Don't call: not eligible for the website offer (under 10 Google reviews, e-commerce, just looking or under $250 a month). Email only." : socialManager ? "Don't call: just looking or under $250 a month. Social media manager email only." : "Don't call: said just the guide, or under $250 a month. Guide and follow-up emails only." } : {}),
         instant_flow: true,
         archived: false,
       })
@@ -112,21 +121,28 @@ export async function POST(request: NextRequest) {
     await supabase.from("leads").update({ notes: notes ? `${notes} | ${summary}` : summary, instant_flow: true, updated_at: new Date().toISOString() }).eq("id", leadId);
   }
 
-  // A double submit shouldn't send the guide twice
+  // A double submit shouldn't send the guide twice. For quick jobs only an earlier quick job counts (a guide download
+  // 10 minutes ago mustn't swallow the job), and a second job gets an alert to Heath but not a second email.
   const since = new Date(Date.now() - 30 * 60_000).toISOString();
-  const { data: recent } = await supabase.from("lead_enrichments").select("id").eq("lead_id", leadId).gte("created_at", since).limit(1);
-  if (recent?.length) {
+  const { data: recent } = await supabase.from("lead_enrichments").select("id, recommended_plan, form").eq("lead_id", leadId).gte("created_at", since).order("created_at", { ascending: false }).limit(10);
+  const repeat = quickJob ? recent?.find((r) => r.recommended_plan === QUICK_JOB_PLAN) : recent?.[0];
+  if (repeat) {
+    const before = (repeat.form as { quickJob?: { job?: string; details?: string } } | null)?.quickJob;
+    if (quickJob && (before?.job !== quickJob.job || before?.details !== quickJob.details)) {
+      after(() => alertHeath(quickJobAlert(quickJob, form, utm.ad, "ANOTHER job from the same person, no second email sent", finance)).catch((err) => console.error("[guide] alert failed", err)));
+    }
     return NextResponse.json({ ok: true, duplicate: true, lead_id: leadId });
   }
 
-  const { data: row, error: rowError } = await supabase.from("lead_enrichments").insert({ lead_id: leadId, form, status: "received" }).select("id").single();
+  const { data: row, error: rowError } = await supabase.from("lead_enrichments").insert({ lead_id: leadId, form: quickJob ? { ...form, quickJob } : form, status: "received", ...(quickJob ? { recommended_plan: QUICK_JOB_PLAN } : {}) }).select("id").single();
   if (rowError || !row) {
     console.error("[guide] enrichment insert failed", rowError);
     return NextResponse.json({ error: "Failed to queue lead" }, { status: 500 });
   }
 
   after(async () => {
-    if (websiteOffer) await processWebsiteOfferLead(row.id, utm, qual).catch((err) => console.error("[guide] processWebsiteOfferLead crashed", err));
+    if (quickJob) await processQuickJobLead(row.id, utm, quickJob).catch((err) => console.error("[guide] processQuickJobLead crashed", err));
+    else if (websiteOffer) await processWebsiteOfferLead(row.id, utm, qual).catch((err) => console.error("[guide] processWebsiteOfferLead crashed", err));
     else if (socialManager) await processSocialManagerLead(row.id, utm, qual, social).catch((err) => console.error("[guide] processSocialManagerLead crashed", err));
     else if (smart) await processSmartWebsiteLead(row.id, utm).catch((err) => console.error("[guide] processSmartWebsiteLead crashed", err));
     else {
